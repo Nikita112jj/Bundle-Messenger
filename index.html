@@ -468,6 +468,17 @@
         <h3>Глобальный чат</h3>
         <span><span id="onlineCount">1</span> онлайн</span>
       </div>
+      <div id="adminMenuWrap" style="display:none;position:relative">
+        <button class="admin-menu-btn" onclick="toggleAdminMenu()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+        </button>
+        <div id="adminActionsMenu">
+          <div class="admin-action-opt danger" onclick="adminClearChat()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+            Очистить чат
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="messages-wrap" id="messagesWrap">
@@ -481,6 +492,23 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         </button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Clear chat modal -->
+<div class="modal-bg" id="clearChatModal">
+  <div class="modal" style="gap:18px">
+    <div style="text-align:center">
+      <div style="width:48px;height:48px;background:rgba(248,113,113,0.15);border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;border:1px solid rgba(248,113,113,0.3)">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+      </div>
+      <h3 style="font-family:Syne,sans-serif;font-size:18px;font-weight:700">Очистить весь чат?</h3>
+      <p style="color:var(--text2);font-size:13px;margin-top:6px">Все сообщения будут удалены навсегда</p>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-secondary" onclick="closeClearChatModal()">Отмена</button>
+      <button style="flex:1;background:linear-gradient(135deg,#ef4444,#f87171);border:none;border-radius:10px;padding:11px;color:white;font-size:14px;font-weight:600;font-family:DM Sans,sans-serif;cursor:pointer" onclick="confirmClearChat()">Очистить</button>
     </div>
   </div>
 </div>
@@ -504,11 +532,105 @@
   </div>
 </div>
 
+<!-- Admin password modal -->
+<div class="modal-bg" id="adminPassModal">
+  <div class="modal" style="gap:18px">
+    <div style="text-align:center">
+      <div style="width:48px;height:48px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </div>
+      <h3 style="font-family:Syne,sans-serif;font-size:18px;font-weight:700">Это имя зарезервировано</h3>
+      <p style="color:var(--text2);font-size:13px;margin-top:6px">Введи пароль для входа как Neked</p>
+    </div>
+    <div class="input-group" style="width:100%;margin-bottom:0">
+      <label>Пароль</label>
+      <input type="password" id="adminPassInput" placeholder="••••••••" onkeydown="if(event.key==='Enter')confirmAdminPass()">
+    </div>
+    <div class="err-msg" id="adminPassErr" style="margin-top:-8px"></div>
+    <div class="modal-btns">
+      <button class="btn-secondary" onclick="closeAdminPassModal()">Отмена</button>
+      <button class="btn-primary" style="margin-top:0;flex:1;border-radius:10px;padding:11px;font-size:14px" onclick="confirmAdminPass()">Войти</button>
+    </div>
+  </div>
+</div>
+
+<!-- Logout confirm modal -->
+<div class="modal-bg" id="logoutModal">
+  <div class="modal" style="gap:18px">
+    <div style="text-align:center">
+      <div style="width:48px;height:48px;background:rgba(248,113,113,0.15);border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;border:1px solid rgba(248,113,113,0.3)">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </div>
+      <h3 style="font-family:Syne,sans-serif;font-size:18px;font-weight:700">Выйти из аккаунта?</h3>
+      <p style="color:var(--text2);font-size:13px;margin-top:6px">Ты сможешь войти снова с тем же именем</p>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-secondary" onclick="closeLogoutModal()">Остаться</button>
+      <button style="flex:1;background:linear-gradient(135deg,#ef4444,#f87171);border:none;border-radius:10px;padding:11px;color:white;font-size:14px;font-weight:600;font-family:DM Sans,sans-serif;cursor:pointer" onclick="confirmLogout()">Выйти</button>
+    </div>
+  </div>
+</div>
+
+<!-- Message context menu -->
+<div id="msgMenu" style="display:none;position:fixed;z-index:400;background:var(--bg2);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.3);overflow:hidden;min-width:160px">
+  <div id="msgMenuCopy" onclick="msgMenuCopy()" style="display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:14px;cursor:pointer;color:var(--text);transition:background 0.15s" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+    Скопировать
+  </div>
+  <div id="msgMenuDelete" onclick="msgMenuDelete()" style="display:none;align-items:center;gap:10px;padding:11px 16px;font-size:14px;cursor:pointer;color:#f87171;transition:background 0.15s" onmouseover="this.style.background='rgba(248,113,113,0.1)'" onmouseout="this.style.background=''">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+    Удалить
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
+
+
+<style>
+/* Убрать выделение текста в чате */
+.bubble { user-select: none; -webkit-user-select: none; }
+.msg-group { cursor: pointer; }
+
+/* Админ-бейдж */
+.admin-badge {
+  display:inline-flex;align-items:center;gap:3px;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:white;font-size:9px;font-weight:700;letter-spacing:0.5px;
+  padding:1px 5px;border-radius:4px;vertical-align:middle;margin-left:4px;
+  text-transform:uppercase;
+}
+
+/* Кнопка 3 точки для админа */
+.admin-menu-btn {
+  background:none;border:none;cursor:pointer;color:var(--text2);
+  padding:6px;border-radius:8px;display:flex;align-items:center;
+  transition:color 0.2s,background 0.2s;
+}
+.admin-menu-btn:hover{color:var(--text);background:var(--bg3);}
+.admin-menu-btn svg{width:18px;height:18px;}
+
+/* Dropdown меню для кнопки 3 точки */
+#adminActionsMenu {
+  position:absolute;top:calc(100% + 6px);right:0;
+  background:var(--bg2);border:1px solid var(--border);border-radius:10px;
+  min-width:175px;z-index:200;overflow:hidden;
+  box-shadow:0 8px 24px rgba(0,0,0,0.3);display:none;
+}
+#adminActionsMenu.open{display:block;}
+.admin-action-opt{
+  display:flex;align-items:center;gap:8px;padding:10px 14px;
+  font-size:13px;cursor:pointer;color:var(--text2);transition:background 0.15s,color 0.15s;
+}
+.admin-action-opt:hover{background:var(--bg3);color:var(--text);}
+.admin-action-opt.danger{color:#f87171;}
+.admin-action-opt.danger:hover{background:rgba(248,113,113,0.1);color:#f87171;}
+.admin-action-opt svg{width:14px;height:14px;flex-shrink:0;}
+</style>
 
 <script>
 const SUPABASE_URL = 'https://vjqrfojuxysihxsyuhly.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_H8NlIIe6SHICJm4yRqU8Pg_1eV5sJok';
+const ADMIN_NICK_LOWER = 'neked';
 
 const HEADERS = {
   'apikey': SUPABASE_KEY,
@@ -516,10 +638,10 @@ const HEADERS = {
   'Content-Type': 'application/json'
 };
 
-// ── SUPABASE HELPERS ──
+// ── DB HELPERS ──
 async function dbQuery(table, params = {}) {
   let url = `${SUPABASE_URL}/rest/v1/${table}?`;
-  if (params.select) url += `select=${params.select}&`;
+  if (params.select) url += `select=${encodeURIComponent(params.select)}&`;
   if (params.order) url += `order=${params.order}&`;
   if (params.limit) url += `limit=${params.limit}&`;
   if (params.filter) url += params.filter + '&';
@@ -527,7 +649,6 @@ async function dbQuery(table, params = {}) {
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
-
 async function dbInsert(table, data) {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
     method: 'POST',
@@ -537,7 +658,6 @@ async function dbInsert(table, data) {
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
-
 async function dbUpsert(table, data, conflict) {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?on_conflict=${conflict}`, {
     method: 'POST',
@@ -547,7 +667,6 @@ async function dbUpsert(table, data, conflict) {
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
-
 async function dbPatch(table, filter, data) {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${filter}`, {
     method: 'PATCH',
@@ -557,136 +676,12 @@ async function dbPatch(table, filter, data) {
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
-
-// ── REALTIME ──
-let ws = null;
-let wsReconnectTimer = null;
-let wsAliveTimer = null;
-let wsConnected = false;
-let lastMsgId = 0; // для polling fallback
-let pollTimer = null;
-
-function connectRealtime() {
-  // Не переподключаться если уже открыт
-  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
-
-  clearTimeout(wsReconnectTimer);
-  clearInterval(wsAliveTimer);
-
-  const wsUrl = SUPABASE_URL.replace('https://', 'wss://') +
-    '/realtime/v1/websocket?apikey=' + SUPABASE_KEY + '&vsn=1.0.0';
-
-  try { ws = new WebSocket(wsUrl); } catch(e) { scheduleReconnect(); return; }
-
-  ws.onopen = () => {
-    wsConnected = true;
-    console.log('[RT] connected');
-
-    // Правильный топик для Supabase Realtime v2
-    ws.send(JSON.stringify({
-      topic: 'realtime:bundle_global',
-      event: 'phx_join',
-      payload: {
-        config: {
-          broadcast: { self: true },
-          postgres_changes: [{ event: 'INSERT', schema: 'public', table: 'bundle_messages' }]
-        }
-      },
-      ref: '1'
-    }));
-
-    // Heartbeat каждые 15с чтобы соединение не умерло в фоне
-    wsAliveTimer = setInterval(() => {
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ topic: 'phoenix', event: 'heartbeat', payload: {}, ref: String(Date.now()) }));
-      } else {
-        clearInterval(wsAliveTimer);
-        scheduleReconnect();
-      }
-    }, 15000);
-
-    // Остановить polling если WS работает
-    clearInterval(pollTimer);
-  };
-
-  ws.onmessage = (e) => {
-    try {
-      const msg = JSON.parse(e.data);
-      if (msg.event === 'postgres_changes') {
-        const rec = msg.payload?.data?.record;
-        if (rec) {
-          if (rec.id > lastMsgId) lastMsgId = rec.id;
-          renderMessage(rec, true);
-        }
-      }
-    } catch {}
-  };
-
-  ws.onclose = () => {
-    wsConnected = false;
-    console.log('[RT] closed, reconnecting...');
-    clearInterval(wsAliveTimer);
-    // Запустить polling пока WS не вернётся
-    startPolling();
-    scheduleReconnect();
-  };
-
-  ws.onerror = () => {
-    ws.close();
-  };
-}
-
-function scheduleReconnect() {
-  clearTimeout(wsReconnectTimer);
-  wsReconnectTimer = setTimeout(() => connectRealtime(), 3000);
-}
-
-// Polling — запасной вариант когда WS отвалился (свёрнутая вкладка и т.д.)
-function startPolling() {
-  clearInterval(pollTimer);
-  pollTimer = setInterval(async () => {
-    if (wsConnected) { clearInterval(pollTimer); return; }
-    try {
-      const msgs = await dbQuery('bundle_messages', {
-        select: '*',
-        filter: `id=gt.${lastMsgId}`,
-        order: 'created_at.asc',
-        limit: 20
-      });
-      if (Array.isArray(msgs) && msgs.length > 0) {
-        msgs.forEach(m => {
-          if (m.id > lastMsgId) lastMsgId = m.id;
-          renderMessage(m, true);
-        });
-      }
-    } catch {}
-  }, 3000);
-}
-
-// Когда вкладка снова становится активной — переподключить WS
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && me) {
-    if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
-      connectRealtime();
-    }
-    // Сразу подгрузить пропущенные сообщения
-    pollMissed();
-  }
-});
-
-async function pollMissed() {
-  if (!me || lastMsgId === 0) return;
-  try {
-    const msgs = await dbQuery('bundle_messages', {
-      select: '*', filter: `id=gt.${lastMsgId}`, order: 'created_at.asc', limit: 50
-    });
-    if (Array.isArray(msgs) && msgs.length > 0) {
-      msgs.forEach(m => {
-        if (m.id > lastMsgId) lastMsgId = m.id;
-        renderMessage(m, true);
-      });
-    }
-  } catch {}
+async function dbDelete(table, filter) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${filter}`, {
+    method: 'DELETE',
+    headers: HEADERS
+  });
+  if (!r.ok) throw new Error(await r.text());
 }
 
 // ── STATE ──
@@ -697,6 +692,18 @@ let themeMode = localStorage.getItem('bundle-theme') || 'system';
 let lastSenderId = null;
 let lastDate = null;
 let renderedIds = new Set();
+let lastMsgId = 0;
+let pendingAdminNick = null; // временно храним ник пока вводят пароль
+
+// Realtime
+let ws = null;
+let wsReconnectTimer = null;
+let wsAliveTimer = null;
+let wsConnected = false;
+let pollTimer = null;
+
+// Context menu
+let ctxMsg = null; // {id, content, user_id}
 
 // ── THEME ──
 function applyTheme() {
@@ -710,7 +717,14 @@ function setTheme(t) {
 }
 function toggleThemeDD() { document.getElementById('themeDD').classList.toggle('open'); }
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (themeMode === 'system') applyTheme(); });
-document.addEventListener('click', e => { if (!e.target.closest('.theme-btn')) document.getElementById('themeDD').classList.remove('open'); });
+document.addEventListener('click', e => {
+  if (!e.target.closest('.theme-btn')) document.getElementById('themeDD').classList.remove('open');
+  if (!e.target.closest('.admin-menu-btn') && !e.target.closest('#adminActionsMenu')) {
+    const m = document.getElementById('adminActionsMenu');
+    if (m) m.classList.remove('open');
+  }
+  if (!e.target.closest('#msgMenu')) hideMsgMenu();
+});
 applyTheme();
 
 // ── MOBILE SIDEBAR ──
@@ -736,13 +750,12 @@ function cropCircle(src, size = 200) {
       ctx.beginPath(); ctx.arc(size/2, size/2, size/2, 0, Math.PI*2); ctx.clip();
       const s = Math.min(img.width, img.height);
       ctx.drawImage(img, (img.width-s)/2, (img.height-s)/2, s, s, 0, 0, size, size);
-      resolve(c.toDataURL('image/jpeg', 0.85));
+      resolve(c.toDataURL('image/jpeg', 0.82));
     };
     img.src = src;
   });
 }
 
-// Register avatar
 document.getElementById('avatarInput').addEventListener('change', function() {
   const file = this.files[0]; if (!file) return;
   const reader = new FileReader();
@@ -754,6 +767,70 @@ document.getElementById('avatarInput').addEventListener('change', function() {
   reader.readAsDataURL(file);
 });
 
+// ── ADMIN CHECK ──
+function isAdminNick(nick) {
+  return nick.trim().toLowerCase() === ADMIN_NICK_LOWER;
+}
+
+// ── ADMIN PASS MODAL ──
+function openAdminPassModal(nick) {
+  pendingAdminNick = nick;
+  document.getElementById('adminPassInput').value = '';
+  document.getElementById('adminPassErr').textContent = '';
+  document.getElementById('adminPassModal').classList.add('show');
+  setTimeout(() => document.getElementById('adminPassInput').focus(), 100);
+}
+function closeAdminPassModal() {
+  document.getElementById('adminPassModal').classList.remove('show');
+  pendingAdminNick = null;
+}
+async function confirmAdminPass() {
+  const pass = document.getElementById('adminPassInput').value;
+  if (!pass) { document.getElementById('adminPassErr').textContent = 'Введи пароль'; return; }
+
+  const btn = document.querySelector('#adminPassModal .btn-primary');
+  btn.disabled = true; btn.textContent = 'Проверяем...';
+  document.getElementById('adminPassErr').textContent = '';
+
+  try {
+    // Проверка пароля через серверную функцию — пароль не хранится в коде
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/check_nick_password`, {
+      method: 'POST',
+      headers: HEADERS,
+      body: JSON.stringify({ p_nick: pendingAdminNick, p_pass: pass })
+    });
+    const ok = await r.json();
+    if (ok === true) {
+      closeAdminPassModal();
+      await doJoin(pendingAdminNick || 'Neked');
+    } else {
+      document.getElementById('adminPassErr').textContent = 'Неверный пароль';
+      document.getElementById('adminPassInput').value = '';
+      document.getElementById('adminPassInput').focus();
+    }
+  } catch {
+    document.getElementById('adminPassErr').textContent = 'Ошибка сервера, попробуй снова';
+  }
+  btn.disabled = false; btn.textContent = 'Войти';
+}
+
+// ── LOGOUT MODALS ──
+function logout() { document.getElementById('logoutModal').classList.add('show'); }
+function closeLogoutModal() { document.getElementById('logoutModal').classList.remove('show'); }
+function confirmLogout() {
+  closeLogoutModal();
+  localStorage.removeItem('bundle-user');
+  me = null; lastSenderId = null; lastDate = null; renderedIds.clear();
+  if (ws) { ws.close(); ws = null; }
+  clearTimeout(wsReconnectTimer); clearInterval(wsAliveTimer); clearInterval(pollTimer);
+  wsConnected = false; lastMsgId = 0;
+  document.getElementById('chatScreen').classList.remove('active');
+  document.getElementById('registerScreen').classList.add('active');
+  document.getElementById('nicknameInput').value = '';
+  document.getElementById('avatarPreview').innerHTML = `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+  avatarDataUrl = null;
+}
+
 // ── REGISTER ──
 async function handleJoin() {
   const nick = document.getElementById('nicknameInput').value.trim();
@@ -761,11 +838,26 @@ async function handleJoin() {
   if (!nick) { err.textContent = 'Введи никнейм'; return; }
   if (nick.length < 2) { err.textContent = 'Минимум 2 символа'; return; }
 
+  // Проверка на админский ник (любой регистр)
+  if (isAdminNick(nick)) {
+    openAdminPassModal(nick);
+    return;
+  }
+
+  await doJoin(nick);
+}
+
+async function doJoin(nick) {
+  const err = document.getElementById('regErr');
   const btn = document.getElementById('joinBtn');
   btn.disabled = true; btn.textContent = 'Входим...'; err.textContent = '';
 
   try {
-    const existing = await dbQuery('bundle_users', { filter: `nickname=eq.${encodeURIComponent(nick)}`, select: 'id,nickname,avatar' });
+    // Поиск существующего пользователя (case-insensitive для никнейма)
+    const existing = await dbQuery('bundle_users', {
+      filter: `nickname=ilike.${encodeURIComponent(nick)}`,
+      select: 'id,nickname,avatar'
+    });
     if (existing && existing.length > 0) {
       me = existing[0];
     } else {
@@ -778,6 +870,7 @@ async function handleJoin() {
       me = res[0] || { id: uid, nickname: nick, avatar: avatarDataUrl || null };
     }
     await dbPatch('bundle_users', `id=eq.${me.id}`, { last_seen: new Date().toISOString() });
+    // Сохранить в localStorage для автологина
     localStorage.setItem('bundle-user', JSON.stringify(me));
     enterChat();
   } catch(e) {
@@ -792,6 +885,11 @@ function enterChat() {
   document.getElementById('registerScreen').classList.remove('active');
   document.getElementById('chatScreen').classList.add('active');
   updateSidebarUser();
+
+  // Показать кнопку 3 точки только админу
+  const adminBtn = document.getElementById('adminMenuWrap');
+  if (adminBtn) adminBtn.style.display = isAdminNick(me.nickname) ? 'block' : 'none';
+
   document.getElementById('msgInput').addEventListener('input', () => {
     document.getElementById('sendBtn').disabled = !document.getElementById('msgInput').value.trim();
   });
@@ -815,21 +913,6 @@ function updateSidebarUser() {
   }
 }
 
-// ── LOGOUT ──
-function logout() {
-  if (!confirm('Выйти из аккаунта?')) return;
-  localStorage.removeItem('bundle-user');
-  me = null; lastSenderId = null; lastDate = null; renderedIds.clear();
-  if (ws) { ws.close(); ws = null; }
-  clearTimeout(wsReconnectTimer); clearInterval(wsAliveTimer); clearInterval(pollTimer);
-  wsConnected = false; lastMsgId = 0;
-  document.getElementById('chatScreen').classList.remove('active');
-  document.getElementById('registerScreen').classList.add('active');
-  document.getElementById('nicknameInput').value = '';
-  document.getElementById('avatarPreview').innerHTML = `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
-  avatarDataUrl = null;
-}
-
 // ── AVATAR CHANGE MODAL ──
 function openAvatarModal() {
   newModalAvatar = null;
@@ -849,7 +932,6 @@ function closeAvatarModal() {
 document.getElementById('avatarModal').addEventListener('click', e => {
   if (e.target === document.getElementById('avatarModal')) closeAvatarModal();
 });
-
 document.getElementById('modalAvatarInput').addEventListener('change', function() {
   const file = this.files[0]; if (!file) return;
   const reader = new FileReader();
@@ -859,7 +941,6 @@ document.getElementById('modalAvatarInput').addEventListener('change', function(
   };
   reader.readAsDataURL(file);
 });
-
 async function saveAvatar() {
   if (!newModalAvatar) { closeAvatarModal(); return; }
   const btn = document.getElementById('saveAvatarBtn');
@@ -871,10 +952,29 @@ async function saveAvatar() {
     updateSidebarUser();
     closeAvatarModal();
     showToast('Аватар обновлён!');
-  } catch(e) {
-    showToast('Ошибка при сохранении');
-  }
+  } catch { showToast('Ошибка при сохранении'); }
   btn.disabled = false; btn.textContent = 'Сохранить';
+}
+
+// ── ADMIN ACTIONS ──
+function toggleAdminMenu() {
+  document.getElementById('adminActionsMenu').classList.toggle('open');
+}
+async function adminClearChat() {
+  document.getElementById('adminActionsMenu').classList.remove('open');
+  document.getElementById('clearChatModal').classList.add('show');
+}
+function closeClearChatModal() {
+  document.getElementById('clearChatModal').classList.remove('show');
+}
+async function confirmClearChat() {
+  closeClearChatModal();
+  try {
+    await dbDelete('bundle_messages', 'id=gt.0');
+    document.getElementById('messagesWrap').innerHTML = '<div class="sys-msg">Чат очищен администратором</div>';
+    renderedIds.clear(); lastSenderId = null; lastDate = null; lastMsgId = 0;
+    showToast('Чат очищен');
+  } catch { showToast('Ошибка при очистке'); }
 }
 
 // ── MESSAGES ──
@@ -901,7 +1001,6 @@ async function loadMessages() {
       return;
     }
     msgs.forEach(m => { renderedIds.add(m.id); renderMessage(m, false); });
-    // Запомнить последний id для polling
     if (msgs.length > 0) lastMsgId = msgs[msgs.length - 1].id;
     wrap.scrollTop = wrap.scrollHeight;
   } catch(e) {
@@ -911,7 +1010,6 @@ async function loadMessages() {
 }
 
 function renderMessage(msg, scroll) {
-  // Не рендерить дубликаты
   if (msg.id && renderedIds.has(msg.id)) return;
   if (msg.id) renderedIds.add(msg.id);
 
@@ -929,8 +1027,19 @@ function renderMessage(msg, scroll) {
   const showAvatar = msg.user_id !== lastSenderId;
   lastSenderId = msg.user_id;
 
+  const isAdmin = isAdminNick(msg.user_nickname || '');
+
   const group = document.createElement('div');
   group.className = 'msg-group' + (isOwn ? ' own' : '');
+  group.dataset.msgId = msg.id;
+  group.dataset.msgContent = msg.content;
+  group.dataset.msgUserId = msg.user_id;
+
+  // Click = context menu
+  group.addEventListener('click', (e) => {
+    e.stopPropagation();
+    showMsgMenu(e, { id: msg.id, content: msg.content, user_id: msg.user_id });
+  });
 
   const avatarEl = document.createElement('div');
   avatarEl.className = 'msg-avatar' + (showAvatar ? '' : ' hidden');
@@ -942,14 +1051,18 @@ function renderMessage(msg, scroll) {
 
   const content = document.createElement('div');
   content.className = 'msg-content';
+
   if (showSender) {
     const s = document.createElement('div');
-    s.className = 'msg-sender'; s.textContent = msg.user_nickname;
+    s.className = 'msg-sender';
+    s.innerHTML = msg.user_nickname + (isAdmin ? '<span class="admin-badge">ADMIN</span>' : '');
     content.appendChild(s);
   }
+
   const bubble = document.createElement('div');
   bubble.className = 'bubble'; bubble.textContent = msg.content;
   content.appendChild(bubble);
+
   const time = document.createElement('div');
   time.className = 'msg-time'; time.textContent = formatTime(msg.created_at);
   content.appendChild(time);
@@ -965,6 +1078,42 @@ function renderMessage(msg, scroll) {
   }
 }
 
+// ── MESSAGE CONTEXT MENU ──
+function showMsgMenu(e, msgData) {
+  ctxMsg = msgData;
+  const menu = document.getElementById('msgMenu');
+  const canDelete = msgData.user_id === me?.id || isAdminNick(me?.nickname || '');
+  document.getElementById('msgMenuDelete').style.display = canDelete ? 'flex' : 'none';
+
+  menu.style.display = 'block';
+  // Позиционирование
+  const x = e.clientX, y = e.clientY;
+  const mw = 170, mh = canDelete ? 88 : 44;
+  menu.style.left = Math.min(x, window.innerWidth - mw - 8) + 'px';
+  menu.style.top = Math.min(y, window.innerHeight - mh - 8) + 'px';
+}
+function hideMsgMenu() {
+  document.getElementById('msgMenu').style.display = 'none';
+  ctxMsg = null;
+}
+function msgMenuCopy() {
+  if (!ctxMsg) return;
+  navigator.clipboard.writeText(ctxMsg.content).then(() => showToast('Скопировано'));
+  hideMsgMenu();
+}
+async function msgMenuDelete() {
+  if (!ctxMsg) return;
+  const id = ctxMsg.id;
+  hideMsgMenu();
+  try {
+    await dbDelete('bundle_messages', `id=eq.${id}`);
+    const el = document.querySelector(`[data-msg-id="${id}"]`);
+    if (el) el.remove();
+    renderedIds.delete(id);
+    showToast('Сообщение удалено');
+  } catch { showToast('Ошибка при удалении'); }
+}
+
 // ── SEND ──
 async function sendMessage() {
   const input = document.getElementById('msgInput');
@@ -973,10 +1122,15 @@ async function sendMessage() {
   input.value = ''; autoResize(input);
   document.getElementById('sendBtn').disabled = true;
   try {
-    await dbInsert('bundle_messages', {
+    const res = await dbInsert('bundle_messages', {
       user_id: me.id, user_nickname: me.nickname,
       user_avatar: me.avatar || null, content: text, channel: 'global'
     });
+    // Рендерим своё сообщение сразу (не ждём realtime)
+    if (res && res[0]) {
+      if (res[0].id > lastMsgId) lastMsgId = res[0].id;
+      renderMessage(res[0], true);
+    }
   } catch(e) {
     showToast('Не удалось отправить');
     input.value = text; autoResize(input);
@@ -991,6 +1145,107 @@ function autoResize(el) {
   el.style.height = 'auto';
   el.style.height = Math.min(el.scrollHeight, 100) + 'px';
   document.getElementById('sendBtn').disabled = !el.value.trim();
+}
+
+// ── REALTIME ──
+function connectRealtime() {
+  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+  clearTimeout(wsReconnectTimer); clearInterval(wsAliveTimer);
+
+  const wsUrl = SUPABASE_URL.replace('https://', 'wss://') +
+    '/realtime/v1/websocket?apikey=' + SUPABASE_KEY + '&vsn=1.0.0';
+
+  try { ws = new WebSocket(wsUrl); } catch { scheduleReconnect(); return; }
+
+  ws.onopen = () => {
+    wsConnected = true;
+    ws.send(JSON.stringify({
+      topic: 'realtime:bundle_global',
+      event: 'phx_join',
+      payload: { config: { broadcast: { self: false }, postgres_changes: [{ event: 'INSERT', schema: 'public', table: 'bundle_messages' }] } },
+      ref: '1'
+    }));
+    // Для DELETE тоже подписываемся
+    ws.send(JSON.stringify({
+      topic: 'realtime:bundle_global_del',
+      event: 'phx_join',
+      payload: { config: { postgres_changes: [{ event: 'DELETE', schema: 'public', table: 'bundle_messages' }] } },
+      ref: '2'
+    }));
+    wsAliveTimer = setInterval(() => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ topic: 'phoenix', event: 'heartbeat', payload: {}, ref: String(Date.now()) }));
+      } else { clearInterval(wsAliveTimer); scheduleReconnect(); }
+    }, 15000);
+    clearInterval(pollTimer);
+  };
+
+  ws.onmessage = (e) => {
+    try {
+      const msg = JSON.parse(e.data);
+      if (msg.event === 'postgres_changes') {
+        const d = msg.payload?.data;
+        if (d?.type === 'INSERT' && d.record) {
+          if (d.record.id > lastMsgId) lastMsgId = d.record.id;
+          renderMessage(d.record, true);
+        }
+        if (d?.type === 'DELETE' && d.old_record?.id) {
+          const el = document.querySelector(`[data-msg-id="${d.old_record.id}"]`);
+          if (el) el.remove();
+          renderedIds.delete(d.old_record.id);
+        }
+      }
+    } catch {}
+  };
+
+  ws.onclose = () => {
+    wsConnected = false;
+    clearInterval(wsAliveTimer);
+    startPolling();
+    scheduleReconnect();
+  };
+  ws.onerror = () => ws.close();
+}
+
+function scheduleReconnect() {
+  clearTimeout(wsReconnectTimer);
+  wsReconnectTimer = setTimeout(() => connectRealtime(), 3000);
+}
+
+function startPolling() {
+  clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
+    if (wsConnected) { clearInterval(pollTimer); return; }
+    try {
+      const msgs = await dbQuery('bundle_messages', {
+        select: '*', filter: `id=gt.${lastMsgId}`, order: 'created_at.asc', limit: 20
+      });
+      if (Array.isArray(msgs) && msgs.length > 0) {
+        msgs.forEach(m => { if (m.id > lastMsgId) lastMsgId = m.id; renderMessage(m, true); });
+      }
+    } catch {}
+  }, 3000);
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && me) {
+    if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
+      connectRealtime();
+    }
+    pollMissed();
+  }
+});
+
+async function pollMissed() {
+  if (!me || lastMsgId === 0) return;
+  try {
+    const msgs = await dbQuery('bundle_messages', {
+      select: '*', filter: `id=gt.${lastMsgId}`, order: 'created_at.asc', limit: 50
+    });
+    if (Array.isArray(msgs) && msgs.length > 0) {
+      msgs.forEach(m => { if (m.id > lastMsgId) lastMsgId = m.id; renderMessage(m, true); });
+    }
+  } catch {}
 }
 
 // ── ONLINE ──
