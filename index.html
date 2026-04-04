@@ -51,7 +51,7 @@
   /* @username field */
   .username-wrap{display:flex;background:var(--bg3);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:border-color .2s,box-shadow .2s;}
   .username-wrap:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow);}
-  .username-at{display:flex;align-items:center;justify-content:center;padding:0 8px 0 12px;background:var(--bg3);border-right:1px solid var(--border);color:var(--accent);font-size:15px;font-weight:700;font-family:'Syne',sans-serif;flex-shrink:0;}
+  .username-at{display:flex;align-items:center;justify-content:center;padding:0 6px 0 10px;background:var(--bg3);border-right:1px solid var(--border);color:var(--accent);font-size:14px;font-weight:700;font-family:'Syne',sans-serif;flex-shrink:0;width:28px;}
   .username-wrap input{flex:1;background:transparent;border:none;padding:11px 14px;color:var(--text);font-size:14px;font-family:'DM Sans',sans-serif;outline:none;}
   .username-wrap input::placeholder{color:var(--text2);}
 
@@ -475,7 +475,8 @@
 <!-- Context menu -->
 <div id="msgMenu">
   <div class="ctx-item" style="color:var(--text)" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''" onclick="ctxCopy()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Скопировать</div>
-  <div class="ctx-item" id="ctxMuteBtn" style="color:#facc15;display:none" onmouseover="this.style.background='rgba(250,204,21,.08)'" onmouseout="this.style.background=''" onclick="ctxMute()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/></svg>Замутить</div>
+  <div class="ctx-item" id="ctxMuteBtn" style="color:#facc15;display:none" onmouseover="this.style.background='rgba(250,204,21,.08)'" onmouseout="this.style.background=''" onclick="ctxMute()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/></svg><span id="ctxMuteBtnLabel">Замутить</span></div>
+  <div class="ctx-item" id="ctxUnmuteBtn" style="color:#22c55e;display:none" onmouseover="this.style.background='rgba(34,197,94,.08)'" onmouseout="this.style.background=''" onclick="ctxUnmute()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>Размутить</div>
   <div class="ctx-item" id="ctxDelBtn" style="color:#f87171;display:none" onmouseover="this.style.background='rgba(248,113,113,.1)'" onmouseout="this.style.background=''" onclick="ctxDelete()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Удалить</div>
 </div>
 
@@ -783,7 +784,9 @@ function enterChat(){
   document.getElementById('chatScreen').classList.add('active');
   updateSidebar();
   document.getElementById('adminMenuWrap').style.display=isAdmin(me.nickname)?'block':'none';
-  checkMute();loadMessages();connectPoll();updateOnline();
+  checkMute();connectPoll();updateOnline();
+  // Delay loadMessages so chatScreen is fully painted before rendering messages
+  requestAnimationFrame(()=>requestAnimationFrame(()=>loadMessages()));
   setInterval(updateOnline,30000);
   setInterval(()=>dbP('bundle_users',`id=eq.${me.id}`,{last_seen:new Date().toISOString()}).catch(()=>{}),20000);
   setInterval(checkMute,15000);
@@ -907,14 +910,21 @@ function renderMsg(msg,scroll){
 }
 
 // ── CTX MENU ──
-function showCtxMenu(e,msg){
+async function showCtxMenu(e,msg){
   ctxMsg=msg;
   const menu=document.getElementById('msgMenu');
   const amAdm=isAdmin(me?.nickname||'');
   const own=msg.user_id===me?.id;
   const tgAdm=isAdmin(msg.user_nickname||'');
   document.getElementById('ctxDelBtn').style.display=(own||amAdm)?'flex':'none';
-  document.getElementById('ctxMuteBtn').style.display=(amAdm&&!own&&!tgAdm)?'flex':'none';
+  // Check if target user is currently muted
+  let targetMuted=false;
+  if(amAdm&&!own&&!tgAdm){
+    try{const u=await dbQ('bundle_users',{filter:`id=eq.${msg.user_id}`,select:'muted_until'});
+      targetMuted=u&&u[0]&&u[0].muted_until&&new Date(u[0].muted_until)>new Date();}catch{}
+  }
+  document.getElementById('ctxMuteBtn').style.display=(amAdm&&!own&&!tgAdm&&!targetMuted)?'flex':'none';
+  document.getElementById('ctxUnmuteBtn').style.display=(amAdm&&!own&&!tgAdm&&targetMuted)?'flex':'none';
   menu.style.display='block';
   const mh=44+((own||amAdm)?44:0)+((amAdm&&!own&&!tgAdm)?44:0);
   menu.style.left=Math.min(e.clientX,innerWidth-170)+'px';
@@ -924,6 +934,7 @@ function hideMsgMenu(){document.getElementById('msgMenu').style.display='none';c
 function ctxCopy(){if(!ctxMsg)return;navigator.clipboard.writeText(ctxMsg.content||ctxMsg.image_url||'').then(()=>showToast('Скопировано'));hideMsgMenu();}
 async function ctxDelete(){if(!ctxMsg)return;const id=ctxMsg.id;hideMsgMenu();const el=document.querySelector(`[data-msg-id="${id}"]`);if(el)el.remove();renderedIds.delete(String(id));try{await dbD('bundle_messages',`id=eq.${id}`);showToast('Удалено');}catch{showToast('Ошибка');}}
 function ctxMute(){if(!ctxMsg)return;const uid=ctxMsg.user_id,nick=ctxMsg.user_nickname;hideMsgMenu();openMuteModal(uid,nick);}
+async function ctxUnmute(){if(!ctxMsg)return;const uid=ctxMsg.user_id,nick=ctxMsg.user_nickname;hideMsgMenu();try{await dbP('bundle_users',`id=eq.${uid}`,{muted_until:null});showToast(`${nick} размучен ✅`);}catch{showToast('Ошибка');}}
 
 // ── SEND ──
 async function sendMessage(){
