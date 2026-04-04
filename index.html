@@ -40,6 +40,7 @@
 
   .screen { display: none; width: 100%; height: 100vh; }
   .screen.active { display: flex; }
+  body.checking .screen { display: none !important; }
 
   /* ── REGISTER ── */
   #registerScreen {
@@ -359,10 +360,10 @@
   }
 </style>
 </head>
-<body>
+<body class="checking">
 
 <!-- REGISTER -->
-<div class="screen active" id="registerScreen">
+<div class="screen" id="registerScreen">
   <div class="register-card">
     <div class="brand">
       <div class="brand-icon">
@@ -860,6 +861,11 @@ async function doJoin(nick) {
     });
     if (existing && existing.length > 0) {
       me = existing[0];
+      // Если при входе загрузили новый аватар — обновить в БД
+      if (avatarDataUrl && avatarDataUrl !== me.avatar) {
+        await dbPatch('bundle_users', `id=eq.${me.id}`, { avatar: avatarDataUrl });
+        me.avatar = avatarDataUrl;
+      }
     } else {
       const uid = 'u_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
       const res = await dbUpsert('bundle_users', {
@@ -870,7 +876,8 @@ async function doJoin(nick) {
       me = res[0] || { id: uid, nickname: nick, avatar: avatarDataUrl || null };
     }
     await dbPatch('bundle_users', `id=eq.${me.id}`, { last_seen: new Date().toISOString() });
-    // Сохранить в localStorage для автологина
+    // Генерируем session token для защиты от подмены
+    me.sessionToken = btoa(me.id + ':' + Date.now() + ':' + Math.random().toString(36).slice(2));
     localStorage.setItem('bundle-user', JSON.stringify(me));
     enterChat();
   } catch(e) {
@@ -1119,6 +1126,13 @@ async function sendMessage() {
   const input = document.getElementById('msgInput');
   const text = input.value.trim();
   if (!text || !me) return;
+  // Проверка целостности сессии
+  const saved = localStorage.getItem('bundle-user');
+  if (!saved) { showToast('Сессия истекла, войди снова'); return; }
+  const savedMe = JSON.parse(saved);
+  if (savedMe.id !== me.id || savedMe.sessionToken !== me.sessionToken) {
+    showToast('Ошибка сессии'); confirmLogout(); return;
+  }
   input.value = ''; autoResize(input);
   document.getElementById('sendBtn').disabled = true;
   try {
@@ -1269,10 +1283,28 @@ function showToast(msg) {
   const saved = localStorage.getItem('bundle-user');
   if (saved) {
     try {
-      me = JSON.parse(saved);
+      const local = JSON.parse(saved);
+      // Подтянуть свежие данные из БД — аватар мог измениться
+      const fresh = await dbQuery('bundle_users', { filter: `id=eq.${local.id}`, select: 'id,nickname,avatar' });
+      if (fresh && fresh.length > 0) {
+        me = fresh[0];
+      } else {
+        me = local;
+      }
+      // Восстановить или создать новый session token
+      me.sessionToken = local.sessionToken || btoa(me.id + ':' + Date.now() + ':' + Math.random().toString(36).slice(2));
+      localStorage.setItem('bundle-user', JSON.stringify(me));
       await dbPatch('bundle_users', `id=eq.${me.id}`, { last_seen: new Date().toISOString() });
+      document.body.classList.remove('checking');
       enterChat();
-    } catch { localStorage.removeItem('bundle-user'); }
+    } catch {
+      localStorage.removeItem('bundle-user');
+      document.body.classList.remove('checking');
+      document.getElementById('registerScreen').classList.add('active');
+    }
+  } else {
+    document.body.classList.remove('checking');
+    document.getElementById('registerScreen').classList.add('active');
   }
 })();
 </script>
