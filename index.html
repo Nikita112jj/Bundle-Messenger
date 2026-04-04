@@ -209,6 +209,13 @@
   .toast.show{transform:translateX(-50%) translateY(0);}
   .loading-msg{color:var(--text2);font-size:14px;text-align:center;padding:20px;}
   .sys-msg{text-align:center;font-size:12px;color:var(--text2);padding:4px 12px;background:var(--bg3);border-radius:20px;align-self:center;margin:6px 0;}
+  .img-placeholder{position:relative;display:inline-block;border-radius:10px;overflow:hidden;max-width:240px;min-width:120px;min-height:80px;background:var(--bg3);}
+  .img-placeholder img.chat-img{filter:blur(12px);transform:scale(1.05);transition:filter .4s,transform .4s;}
+  .img-placeholder img.chat-img.loaded{filter:none;transform:scale(1);}
+  .img-placeholder .img-spinner{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.2);transition:opacity .3s;}
+  .img-placeholder .img-spinner.hide{opacity:0;pointer-events:none;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .img-placeholder .img-spinner svg{animation:spin 1s linear infinite;color:#fff;width:24px;height:24px;}
   ::-webkit-scrollbar{width:4px;}
   ::-webkit-scrollbar-track{background:transparent;}
   ::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
@@ -548,7 +555,7 @@ async function uploadImg(file) {
 }
 
 // ── STATE ──
-let me=null,avatarDataUrl=null,newModalAvatar=null,isLoadingMessages=false;
+let me=null,avatarDataUrl=null,newModalAvatar=null,isLoadingMessages=false,pollReady=false;
 let themeMode=localStorage.getItem('bundle-theme')||'system';
 let lastSenderId=null,lastDate=null,renderedIds=new Set(),lastMsgId=0;
 let pollTimer=null,ctxMsg=null;
@@ -837,6 +844,7 @@ const fmtTime=ts=>new Date(ts).toLocaleTimeString('ru-RU',{hour:'2-digit',minute
 function fmtDate(ts){const d=new Date(ts),t=new Date();if(d.toDateString()===t.toDateString())return'Сегодня';const y=new Date(t);y.setDate(t.getDate()-1);if(d.toDateString()===y.toDateString())return'Вчера';return d.toLocaleDateString('ru-RU',{day:'numeric',month:'long'});}
 
 async function loadMessages(){
+  pollReady=false;
   isLoadingMessages=true;
   renderedIds.clear();lastSenderId=null;lastDate=null;lastMsgId=0;
   const wrap=document.getElementById('messagesWrap');
@@ -844,7 +852,7 @@ async function loadMessages(){
   try{
     const msgs=await dbQ('bundle_messages',{select:'*',order:'created_at.asc',limit:150});
     wrap.innerHTML='';lastSenderId=null;lastDate=null;renderedIds.clear();
-    if(!msgs||msgs.length===0){wrap.innerHTML='<div class="sys-msg">Будь первым — напиши что-нибудь!</div>';isLoadingMessages=false;return;}
+    if(!msgs||msgs.length===0){wrap.innerHTML='<div class="sys-msg">Будь первым — напиши что-нибудь!</div>';isLoadingMessages=false;pollReady=true;return;}
     msgs.forEach(m=>{renderedIds.add(String(m.id));renderMsg(m,false);});
     lastMsgId=msgs[msgs.length-1].id;
     wrap.scrollTop=wrap.scrollHeight;
@@ -853,6 +861,7 @@ async function loadMessages(){
     wrap.innerHTML='<div class="loading-msg" style="color:#f87171">⚠️ Не удалось загрузить. Проверь Console.</div>';
   }
   isLoadingMessages=false;
+  pollReady=true;
 }
 
 function renderMsg(msg,scroll){
@@ -881,9 +890,15 @@ function renderMsg(msg,scroll){
 
   if(msg.image_url){
     const bbl=document.createElement('div');bbl.className='bubble img-bubble';
-    const img=document.createElement('img');img.className='chat-img';img.src=msg.image_url;
+    const placeholder=document.createElement('div');placeholder.className='img-placeholder';
+    const img=document.createElement('img');img.className='chat-img';
+    const spinner=document.createElement('div');spinner.className='img-spinner';
+    spinner.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>';
+    img.onload=()=>{img.classList.add('loaded');spinner.classList.add('hide');};
+    img.src=msg.image_url;
     img.onclick=ev=>{ev.stopPropagation();document.getElementById('lightboxImg').src=msg.image_url;document.getElementById('lightbox').classList.add('show');};
-    bbl.appendChild(img);
+    placeholder.appendChild(img);placeholder.appendChild(spinner);
+    bbl.appendChild(placeholder);
     if(msg.content){const cap=document.createElement('div');cap.className='img-caption';cap.textContent=msg.content;bbl.appendChild(cap);}
     cont.appendChild(bbl);
   } else if(msg.content){
@@ -950,7 +965,7 @@ function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrol
 function connectPoll(){
   clearInterval(pollTimer);
   pollTimer=setInterval(async()=>{
-    if(!me||isLoadingMessages)return;
+    if(!me||!pollReady)return;
     try{const msgs=await dbQ('bundle_messages',{select:'*',filter:`id=gt.${lastMsgId}`,order:'created_at.asc',limit:30});
       if(Array.isArray(msgs)&&msgs.length>0)msgs.forEach(m=>{if(m.id>lastMsgId)lastMsgId=m.id;renderMsg(m,true);});
     }catch{}
@@ -959,7 +974,7 @@ function connectPoll(){
   document.addEventListener('visibilitychange',onVis);
 }
 async function onVis(){
-  if(document.visibilityState==='visible'&&me&&!isLoadingMessages){
+  if(document.visibilityState==='visible'&&me&&pollReady){
     try{const msgs=await dbQ('bundle_messages',{select:'*',filter:`id=gt.${lastMsgId}`,order:'created_at.asc',limit:50});
       if(Array.isArray(msgs)&&msgs.length>0)msgs.forEach(m=>{if(m.id>lastMsgId)lastMsgId=m.id;renderMsg(m,true);});
     }catch{}
