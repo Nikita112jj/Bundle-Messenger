@@ -51,7 +51,7 @@
   /* @username field */
   .username-wrap{display:flex;background:var(--bg3);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:border-color .2s,box-shadow .2s;}
   .username-wrap:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow);}
-  .username-at{display:flex;align-items:center;justify-content:center;width:42px;align-self:stretch;background:var(--bg3);border-right:1px solid var(--border);color:var(--accent);font-size:15px;font-weight:700;font-family:'Syne',sans-serif;flex-shrink:0;}
+  .username-at{display:flex;align-items:center;justify-content:center;width:38px;align-self:stretch;background:var(--bg3);border-right:1px solid var(--border);color:var(--accent);font-size:16px;font-weight:800;font-family:'Syne',sans-serif;flex-shrink:0;letter-spacing:0;}
   .username-wrap input{flex:1;background:transparent;border:none;padding:11px 14px;color:var(--text);font-size:14px;font-family:'DM Sans',sans-serif;outline:none;}
   .username-wrap input::placeholder{color:var(--text2);}
 
@@ -136,6 +136,14 @@
   .msg-group.own{flex-direction:row-reverse;}
   .msg-avatar{width:28px;height:28px;border-radius:50%;flex-shrink:0;background:var(--bg3);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--text2);align-self:flex-end;}
   .msg-avatar img{width:28px;height:28px;border-radius:50%;object-fit:cover;}
+  .av-grad-0{background:linear-gradient(135deg,#6366f1,#8b5cf6);}
+  .av-grad-1{background:linear-gradient(135deg,#3b82f6,#06b6d4);}
+  .av-grad-2{background:linear-gradient(135deg,#ec4899,#f43f5e);}
+  .av-grad-3{background:linear-gradient(135deg,#f59e0b,#ef4444);}
+  .av-grad-4{background:linear-gradient(135deg,#10b981,#3b82f6);}
+  .av-grad-5{background:linear-gradient(135deg,#8b5cf6,#ec4899);}
+  .av-grad-6{background:linear-gradient(135deg,#06b6d4,#10b981);}
+  .av-grad-7{background:linear-gradient(135deg,#f97316,#eab308);}
   .msg-content{max-width:65%;display:flex;flex-direction:column;gap:2px;}
   .msg-group.own .msg-content{align-items:flex-end;}
   .msg-sender{font-size:11px;font-weight:600;color:var(--accent2);padding:0 4px;margin-bottom:1px;}
@@ -209,6 +217,18 @@
   .toast.show{transform:translateX(-50%) translateY(0);}
   .loading-msg{color:var(--text2);font-size:14px;text-align:center;padding:20px;}
   .sys-msg{text-align:center;font-size:12px;color:var(--text2);padding:4px 12px;background:var(--bg3);border-radius:20px;align-self:center;margin:6px 0;}
+  .dm-modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+  .dm-modal-bg.show{display:flex;}
+  .dm-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;cursor:pointer;transition:background .15s;color:var(--text2);font-size:13px;}
+  .dm-item:hover{background:var(--bg3);color:var(--text);}
+  .dm-item.active{background:var(--accent-glow);color:var(--accent2);}
+  .dm-avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;}
+  .unread-badge{background:var(--accent);color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:1px 6px;margin-left:auto;}
+  .channel-section-header{display:flex;align-items:center;justify-content:space-between;padding:6px 8px 4px;}
+  .channel-section-header span{font-size:10px;font-weight:600;letter-spacing:1.2px;color:var(--text2);text-transform:uppercase;}
+  .add-dm-btn{width:20px;height:20px;border-radius:5px;background:var(--bg3);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text2);transition:color .15s,background .15s;}
+  .add-dm-btn:hover{color:var(--accent);background:var(--accent-glow);}
+  .add-dm-btn svg{width:11px;height:11px;}
   .img-placeholder{position:relative;display:inline-block;border-radius:10px;overflow:hidden;max-width:240px;min-width:120px;min-height:80px;background:var(--bg3);}
   .img-placeholder img.chat-img{filter:blur(12px);transform:scale(1.05);transition:filter .4s,transform .4s;}
   .img-placeholder img.chat-img.loaded{filter:none;transform:scale(1);}
@@ -286,7 +306,7 @@
       <div class="input-group">
         <label>@USERNAME (уникальный, только латиница)</label>
         <div class="username-wrap">
-          <span class="username-at">@</span>
+          <span class="username-at">&#64;</span>
           <input type="text" id="regUsername" placeholder="твой_юзернейм" maxlength="20" autocomplete="off" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9_]/g,'')">
         </div>
       </div>
@@ -360,19 +380,21 @@
       </div>
       <div style="position:relative">
         <button class="theme-btn" onclick="toggleThemeDD()">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/></svg>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
         <div class="theme-dropdown" id="themeDD">
           <div class="theme-opt" data-theme="system" onclick="setTheme('system')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>Системная</div>
           <div class="theme-opt" data-theme="dark" onclick="setTheme('dark')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>Тёмная</div>
-          <div class="theme-opt" data-theme="light" onclick="setTheme('light')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/></svg>Светлая</div>
+          <div class="theme-opt" data-theme="light" onclick="setTheme('light')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>Светлая</div>
         </div>
       </div>
     </div>
     <div class="channel-list">
-      <div class="channel-label">Каналы</div>
-      <div class="channel-item active" onclick="closeSidebar()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Глобальный чат</div>
+      <div class="channel-section-header"><span>Каналы</span></div>
+      <div class="channel-item active" id="globalChatItem" onclick="switchToGlobal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Глобальный чат</div>
+      <div class="channel-section-header" style="margin-top:8px"><span>Личные</span><button class="add-dm-btn" onclick="openNewDM()" title="Новый чат"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button></div>
+      <div id="dmList"></div>
     </div>
     <div class="sidebar-footer">
       <div class="my-avatar-wrap" onclick="openAvatarModal()">
@@ -390,12 +412,12 @@
   <div class="chat-main">
     <div class="chat-topbar">
       <button class="hamburger" onclick="openSidebar()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
-      <div class="ch-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
-      <div class="chat-topbar-info"><h3>Глобальный чат</h3><span><span id="onlineCount">1</span> онлайн</span></div>
+      <div class="ch-icon" id="chatTopbarIcon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+      <div class="chat-topbar-info"><h3 id="chatTopbarTitle">Глобальный чат</h3><span id="chatTopbarSub"><span id="onlineCount">1</span> онлайн</span></div>
       <div id="adminMenuWrap" style="display:none;position:relative">
         <button class="admin-menu-btn" onclick="toggleAdminMenu()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></button>
         <div id="adminActionsMenu">
-          <div class="admin-action-opt danger" onclick="adminClearChat()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Очистить чат</div>
+          <div class="admin-action-opt danger" onclick="adminClearChat()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>Очистить чат</div>
         </div>
       </div>
     </div>
@@ -482,7 +504,7 @@
 <!-- Context menu -->
 <div id="msgMenu">
   <div class="ctx-item" style="color:var(--text)" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''" onclick="ctxCopy()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Скопировать</div>
-  <div class="ctx-item" id="ctxMuteBtn" style="color:#facc15;display:none" onmouseover="this.style.background='rgba(250,204,21,.08)'" onmouseout="this.style.background=''" onclick="ctxMute()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/></svg><span id="ctxMuteBtnLabel">Замутить</span></div>
+  <div class="ctx-item" id="ctxMuteBtn" style="color:#facc15;display:none" onmouseover="this.style.background='rgba(250,204,21,.08)'" onmouseout="this.style.background=''" onclick="ctxMute()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0-5.94-.6"/><path d="M17 17H5a7 7 0 0 1-2-4.9V10"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg><span id="ctxMuteBtnLabel">Замутить</span></div>
   <div class="ctx-item" id="ctxUnmuteBtn" style="color:#22c55e;display:none" onmouseover="this.style.background='rgba(34,197,94,.08)'" onmouseout="this.style.background=''" onclick="ctxUnmute()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>Размутить</div>
   <div class="ctx-item" id="ctxDelBtn" style="color:#f87171;display:none" onmouseover="this.style.background='rgba(248,113,113,.1)'" onmouseout="this.style.background=''" onclick="ctxDelete()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Удалить</div>
 </div>
@@ -492,6 +514,25 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- DM NEW CHAT MODAL -->
+<div class="dm-modal-bg" id="newDMModal">
+  <div class="modal">
+    <h3>Новый личный чат</h3>
+    <p style="color:var(--text2);font-size:13px;text-align:center">Введи @username собеседника</p>
+    <div class="input-group" style="width:100%">
+      <div class="username-wrap">
+        <span class="username-at">&#64;</span>
+        <input type="text" id="dmUsernameInput" placeholder="username" autocomplete="off" onkeydown="if(event.key==='Enter')startDM()">
+      </div>
+    </div>
+    <div class="err-msg" id="dmErr"></div>
+    <div class="modal-btns">
+      <button class="btn-secondary" onclick="closeNewDM()">Отмена</button>
+      <button class="btn-primary" id="dmStartBtn" onclick="startDM()" style="margin-top:0;border-radius:10px;padding:10px;font-size:14px">Открыть чат</button>
+    </div>
+  </div>
+</div>
 
 <script>
 // ════════════════════════════════════════
@@ -884,9 +925,13 @@ function renderMsg(msg,scroll){
   grp.dataset.msgId=msg.id;grp.dataset.uid=msg.user_id;grp.dataset.nick=msg.user_nickname||'';
   grp.addEventListener('click',e=>{e.stopPropagation();showCtxMenu(e,{id:msg.id,content:msg.content,user_id:msg.user_id,user_nickname:msg.user_nickname||'',image_url:msg.image_url||null});});
 
-  const av=document.createElement('div');av.className='msg-avatar';
+  const av=document.createElement('div');
+  const _gradIdx=(s=>s.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%8)(msg.user_id||'');
+  av.className='msg-avatar av-grad-'+_gradIdx;
   if(msg.user_avatar)av.innerHTML=`<img src="${msg.user_avatar}">`;
-  else av.textContent=(msg.user_nickname||'?')[0].toUpperCase();
+  else{av.textContent=(msg.user_nickname||'?')[0].toUpperCase();av.style.color='#fff';}
+  // Only show avatar on last message in a group (when next msg is different sender)
+  if(isOwn)av.style.visibility='hidden';
 
   const cont=document.createElement('div');cont.className='msg-content';
 
@@ -1026,6 +1071,170 @@ async function updateOnline(){
     document.getElementById('authScreen').classList.add('active');
   }
 })();
+
+// ── DM STATE ──
+let currentMode='global'; // 'global' or dm user_id
+let currentDMUser=null;
+let dmPollTimer=null;
+let dmLastMsgId=0;
+let dmRenderedIds=new Set();
+let dmConversations={}; // uid -> {user, msgs}
+
+// ── DM FUNCTIONS ──
+function openNewDM(){
+  document.getElementById('dmUsernameInput').value='';
+  document.getElementById('dmErr').textContent='';
+  document.getElementById('newDMModal').classList.add('show');
+  setTimeout(()=>document.getElementById('dmUsernameInput').focus(),100);
+}
+function closeNewDM(){document.getElementById('newDMModal').classList.remove('show');}
+
+async function startDM(){
+  const uname=document.getElementById('dmUsernameInput').value.trim().toLowerCase().replace('@','');
+  const err=document.getElementById('dmErr');err.textContent='';
+  if(!uname){err.textContent='Введи username';return;}
+  if(uname===me.username){err.textContent='Нельзя писать себе';return;}
+  const btn=document.getElementById('dmStartBtn');btn.disabled=true;btn.textContent='Ищем...';
+  try{
+    const users=await dbQ('bundle_users',{filter:`username=ilike.${encodeURIComponent(uname)}`,select:'id,nickname,username,avatar'});
+    if(!users||users.length===0){err.textContent='Пользователь не найден';btn.disabled=false;btn.textContent='Открыть чат';return;}
+    const target=users[0];
+    closeNewDM();
+    openDMChat(target);
+  }catch{err.textContent='Ошибка подключения';}
+  btn.disabled=false;btn.textContent='Открыть чат';
+}
+
+async function openDMChat(target){
+  currentMode='dm';
+  currentDMUser=target;
+  closeSidebar();
+  // Update topbar
+  const gradIdx=target.id.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%8;
+  document.getElementById('chatTopbarIcon').innerHTML=`<div class="dm-avatar av-grad-${gradIdx}" style="width:34px;height:34px;font-size:13px;font-weight:700;color:#fff">${target.avatar?`<img src="${target.avatar}" style="width:34px;height:34px;border-radius:50%;object-fit:cover">`:(target.nickname||'?')[0].toUpperCase()}</div>`;
+  document.getElementById('chatTopbarTitle').textContent=target.nickname;
+  document.getElementById('chatTopbarSub').textContent='@'+target.username;
+  // Update sidebar active state
+  document.getElementById('globalChatItem').classList.remove('active');
+  document.querySelectorAll('.dm-item').forEach(el=>el.classList.remove('active'));
+  const dmEl=document.getElementById('dm-'+target.id);
+  if(dmEl)dmEl.classList.add('active');
+  else addDMToSidebar(target);
+  // Load DM messages
+  clearInterval(dmPollTimer);
+  dmRenderedIds.clear();dmLastMsgId=0;
+  await loadDMMessages(target);
+  dmPollTimer=setInterval(()=>pollDM(target),2000);
+}
+
+function addDMToSidebar(target){
+  const gradIdx=target.id.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%8;
+  const el=document.createElement('div');
+  el.className='dm-item active';el.id='dm-'+target.id;
+  el.innerHTML=`<div class="dm-avatar av-grad-${gradIdx}" style="color:#fff">${target.avatar?`<img src="${target.avatar}" style="width:28px;height:28px;border-radius:50%;object-fit:cover">`:(target.nickname||'?')[0].toUpperCase()}</div><span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${target.nickname}</span>`;
+  el.onclick=()=>openDMChat(target);
+  document.getElementById('dmList').appendChild(el);
+}
+
+async function loadDMMessages(target){
+  const wrap=document.getElementById('messagesWrap');
+  wrap.innerHTML='<div class="loading-msg">Загрузка...</div>';
+  try{
+    const filter=`or=(and(from_id.eq.${me.id},to_id.eq.${target.id}),and(from_id.eq.${target.id},to_id.eq.${me.id}))`;
+    const msgs=await dbQ('bundle_dms',{filter,select:'*',order:'created_at.asc',limit:150});
+    wrap.innerHTML='';lastSenderId=null;lastDate=null;
+    if(!msgs||msgs.length===0){wrap.innerHTML='<div class="sys-msg">Начни переписку!</div>';return;}
+    msgs.forEach(m=>renderDMMsg(m));
+    dmLastMsgId=msgs[msgs.length-1].id;
+    wrap.scrollTop=wrap.scrollHeight;
+  }catch(e){console.error(e);wrap.innerHTML='<div class="loading-msg" style="color:#f87171">Ошибка загрузки</div>';}
+}
+
+async function pollDM(target){
+  if(!me||!target)return;
+  try{
+    const filter=`and(or(and(from_id.eq.${me.id},to_id.eq.${target.id}),and(from_id.eq.${target.id},to_id.eq.${me.id})),id.gt.${dmLastMsgId})`;
+    const msgs=await dbQ('bundle_dms',{filter,select:'*',order:'created_at.asc',limit:30});
+    if(Array.isArray(msgs)&&msgs.length>0)msgs.forEach(m=>{if(m.id>dmLastMsgId)dmLastMsgId=m.id;renderDMMsg(m,true);});
+  }catch{}
+}
+
+function renderDMMsg(msg,scroll=false){
+  if(dmRenderedIds.has(String(msg.id)))return;
+  dmRenderedIds.add(String(msg.id));
+  const wrap=document.getElementById('messagesWrap');
+  const isOwn=msg.from_id===me.id;
+  const nick=isOwn?me.nickname:(currentDMUser?.nickname||msg.from_nick||'?');
+  const avatar=isOwn?me.avatar:(currentDMUser?.avatar||null);
+  const uid=msg.from_id;
+  const gradIdx=uid.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%8;
+  const ds=fmtDate(msg.created_at);
+  if(ds!==lastDate){const d=document.createElement('div');d.className='date-divider';d.textContent=ds;wrap.appendChild(d);lastDate=ds;lastSenderId=null;}
+  const showSnd=!isOwn&&uid!==lastSenderId;lastSenderId=uid;
+  const grp=document.createElement('div');grp.className='msg-group'+(isOwn?' own':'');
+  const av=document.createElement('div');av.className='msg-avatar av-grad-'+gradIdx;av.style.color='#fff';
+  if(avatar)av.innerHTML=`<img src="${avatar}" style="width:28px;height:28px;border-radius:50%;object-fit:cover">`;
+  else av.textContent=(nick||'?')[0].toUpperCase();
+  if(isOwn)av.style.visibility='hidden';
+  const cont=document.createElement('div');cont.className='msg-content';
+  if(showSnd){const s=document.createElement('div');s.className='msg-sender';s.textContent=nick;cont.appendChild(s);}
+  if(msg.image_url){
+    const bbl=document.createElement('div');bbl.className='bubble img-bubble';
+    const ph=document.createElement('div');ph.className='img-placeholder';
+    const img=document.createElement('img');img.className='chat-img';
+    const sp=document.createElement('div');sp.className='img-spinner';
+    sp.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>';
+    img.onload=()=>{img.classList.add('loaded');sp.classList.add('hide');};
+    img.src=msg.image_url;ph.appendChild(img);ph.appendChild(sp);bbl.appendChild(ph);
+    if(msg.content){const cap=document.createElement('div');cap.className='img-caption';cap.textContent=msg.content;bbl.appendChild(cap);}
+    cont.appendChild(bbl);
+  } else if(msg.content){
+    const bbl=document.createElement('div');bbl.className='bubble';bbl.textContent=msg.content;cont.appendChild(bbl);
+  }
+  const tm=document.createElement('div');tm.className='msg-time';tm.textContent=fmtTime(msg.created_at);cont.appendChild(tm);
+  if(!isOwn)grp.appendChild(av);grp.appendChild(cont);if(isOwn)grp.appendChild(av);
+  wrap.appendChild(grp);
+  if(scroll){const atBot=wrap.scrollHeight-wrap.scrollTop-wrap.clientHeight<120;if(atBot||isOwn)wrap.scrollTop=wrap.scrollHeight;}
+}
+
+function switchToGlobal(){
+  currentMode='global';currentDMUser=null;
+  clearInterval(dmPollTimer);
+  document.getElementById('globalChatItem').classList.add('active');
+  document.querySelectorAll('.dm-item').forEach(el=>el.classList.remove('active'));
+  document.getElementById('chatTopbarIcon').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
+  document.getElementById('chatTopbarTitle').textContent='Глобальный чат';
+  document.getElementById('chatTopbarSub').innerHTML='<span id="onlineCount">1</span> онлайн';
+  closeSidebar();
+  loadMessages().then(()=>connectPoll());
+}
+
+// Override sendMessage to handle DM mode
+const _origSendMessage=sendMessage;
+window.sendMessage=async function(){
+  if(currentMode==='dm'&&currentDMUser){
+    if(isMuted()){showToast('Ты замьючен');return;}
+    const inp=document.getElementById('msgInput');
+    const text=inp.value.trim();
+    if(!text&&!attachFile)return;
+    if(!me)return;
+    inp.value='';autoResize(inp);
+    document.getElementById('sendBtn').disabled=true;
+    try{
+      let imgUrl=null;
+      if(attachFile){
+        showToast('Загружаем фото...');
+        try{imgUrl=await uploadImg(attachFile);}catch(e){showToast('Ошибка загрузки фото');inp.value=text;autoResize(inp);document.getElementById('sendBtn').disabled=!canSend();return;}
+        clearImgAttach();
+      }
+      const res=await dbI('bundle_dms',{from_id:me.id,to_id:currentDMUser.id,from_nick:me.nickname,to_nick:currentDMUser.nickname,content:text||null,image_url:imgUrl||null});
+      if(res&&res[0]){if(res[0].id>dmLastMsgId)dmLastMsgId=res[0].id;renderDMMsg(res[0],true);}
+    }catch(e){showToast('Не удалось отправить');inp.value=text;autoResize(inp);}
+    document.getElementById('sendBtn').disabled=!canSend();
+    return;
+  }
+  return _origSendMessage();
+};
 </script>
 </body>
 </html>
