@@ -696,15 +696,8 @@ let renderedIds = new Set();
 let lastMsgId = 0;
 let pendingAdminNick = null; // временно храним ник пока вводят пароль
 
-// Realtime
-let ws = null;
-let wsReconnectTimer = null;
-let wsAliveTimer = null;
-let wsConnected = false;
 let pollTimer = null;
-
-// Context menu
-let ctxMsg = null; // {id, content, user_id}
+let ctxMsg = null;
 
 // ── THEME ──
 function applyTheme() {
@@ -822,9 +815,9 @@ function confirmLogout() {
   closeLogoutModal();
   localStorage.removeItem('bundle-user');
   me = null; lastSenderId = null; lastDate = null; renderedIds.clear();
-  if (ws) { ws.close(); ws = null; }
-  clearTimeout(wsReconnectTimer); clearInterval(wsAliveTimer); clearInterval(pollTimer);
-  wsConnected = false; lastMsgId = 0;
+  clearInterval(pollTimer);
+  document.removeEventListener('visibilitychange', onVisible);
+  lastMsgId = 0;
   document.getElementById('chatScreen').classList.remove('active');
   document.getElementById('registerScreen').classList.add('active');
   document.getElementById('nicknameInput').value = '';
@@ -1164,108 +1157,44 @@ function autoResize(el) {
   document.getElementById('sendBtn').disabled = !el.value.trim();
 }
 
-// ── REALTIME ──
+// ── REALTIME — polling каждые 2с (надёжно) + WS бонус ──
 function connectRealtime() {
-  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
-  clearTimeout(wsReconnectTimer); clearInterval(wsAliveTimer);
-
-  const wsUrl = SUPABASE_URL.replace('https://', 'wss://') +
-    '/realtime/v1/websocket?apikey=' + SUPABASE_KEY + '&vsn=1.0.0';
-
-  try { ws = new WebSocket(wsUrl); } catch { scheduleReconnect(); return; }
-
-  ws.onopen = () => {
-    wsConnected = true;
-    ws.send(JSON.stringify({
-      topic: 'realtime:global-chat',
-      event: 'phx_join',
-      payload: { config: { broadcast: { self: true }, postgres_changes: [{ event: 'INSERT', schema: 'public', table: 'bundle_messages' }, { event: 'DELETE', schema: 'public', table: 'bundle_messages' }] } },
-      ref: '1'
-    }));
-    wsAliveTimer = setInterval(() => {
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ topic: 'phoenix', event: 'heartbeat', payload: {}, ref: String(Date.now()) }));
-      } else { clearInterval(wsAliveTimer); scheduleReconnect(); }
-    }, 15000);
-    clearInterval(pollTimer);
-  };
-
-  ws.onmessage = (e) => {
-    try {
-      const msg = JSON.parse(e.data);
-      // Supabase realtime v1 и v2 форматы
-      const payload = msg.payload;
-      const data = payload?.data;
-      if (msg.event === 'postgres_changes' && data) {
-        if (data.type === 'INSERT' && data.record) {
-          const rec = data.record;
-          if (rec.id > lastMsgId) lastMsgId = rec.id;
-          renderMessage(rec, true);
-        }
-        if (data.type === 'DELETE') {
-          const oldId = data.old_record?.id || data.record?.id;
-          if (oldId) {
-            const el = document.querySelector(`[data-msg-id="${oldId}"]`);
-            if (el) el.remove();
-            renderedIds.delete(String(oldId));
-          }
-        }
-      }
-      // heartbeat ответ
-      if (msg.event === 'phx_reply' && payload?.status === 'ok') {
-        // подписка подтверждена
-      }
-    } catch {}
-  };
-
-  ws.onclose = () => {
-    wsConnected = false;
-    clearInterval(wsAliveTimer);
-    startPolling();
-    scheduleReconnect();
-  };
-  ws.onerror = () => ws.close();
-}
-
-function scheduleReconnect() {
-  clearTimeout(wsReconnectTimer);
-  wsReconnectTimer = setTimeout(() => connectRealtime(), 3000);
-}
-
-function startPolling() {
+  // Polling — основной метод, работает всегда
   clearInterval(pollTimer);
   pollTimer = setInterval(async () => {
-    if (wsConnected) { clearInterval(pollTimer); return; }
+    if (!me) return;
     try {
       const msgs = await dbQuery('bundle_messages', {
-        select: '*', filter: `id=gt.${lastMsgId}`, order: 'created_at.asc', limit: 20
+        select: '*', filter: `id=gt.${lastMsgId}`, order: 'created_at.asc', limit: 30
       });
       if (Array.isArray(msgs) && msgs.length > 0) {
-        msgs.forEach(m => { if (m.id > lastMsgId) lastMsgId = m.id; renderMessage(m, true); });
+        msgs.forEach(m => {
+          if (m.id > lastMsgId) lastMsgId = m.id;
+          renderMessage(m, true);
+        });
       }
     } catch {}
-  }, 3000);
+  }, 2000);
+
+  // Visibility — когда вернулся на вкладку, сразу подгрузить
+  document.removeEventListener('visibilitychange', onVisible);
+  document.addEventListener('visibilitychange', onVisible);
 }
 
-document.addEventListener('visibilitychange', () => {
+async function onVisible() {
   if (document.visibilityState === 'visible' && me) {
-    if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
-      connectRealtime();
-    }
-    pollMissed();
+    try {
+      const msgs = await dbQuery('bundle_messages', {
+        select: '*', filter: `id=gt.${lastMsgId}`, order: 'created_at.asc', limit: 50
+      });
+      if (Array.isArray(msgs) && msgs.length > 0) {
+        msgs.forEach(m => {
+          if (m.id > lastMsgId) lastMsgId = m.id;
+          renderMessage(m, true);
+        });
+      }
+    } catch {}
   }
-});
-
-async function pollMissed() {
-  if (!me || lastMsgId === 0) return;
-  try {
-    const msgs = await dbQuery('bundle_messages', {
-      select: '*', filter: `id=gt.${lastMsgId}`, order: 'created_at.asc', limit: 50
-    });
-    if (Array.isArray(msgs) && msgs.length > 0) {
-      msgs.forEach(m => { if (m.id > lastMsgId) lastMsgId = m.id; renderMessage(m, true); });
-    }
-  } catch {}
 }
 
 // ── ONLINE ──
