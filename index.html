@@ -51,7 +51,7 @@
   /* @username field */
   .username-wrap{display:flex;background:var(--bg3);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:border-color .2s,box-shadow .2s;}
   .username-wrap:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow);}
-  .username-at{display:flex;align-items:center;justify-content:center;width:36px;background:var(--bg3);border-right:1px solid var(--border);color:var(--accent);font-size:15px;font-weight:700;font-family:'Syne',sans-serif;flex-shrink:0;}
+  .username-at{display:flex;align-items:center;justify-content:center;width:42px;align-self:stretch;background:var(--bg3);border-right:1px solid var(--border);color:var(--accent);font-size:15px;font-weight:700;font-family:'Syne',sans-serif;flex-shrink:0;}
   .username-wrap input{flex:1;background:transparent;border:none;padding:11px 14px;color:var(--text);font-size:14px;font-family:'DM Sans',sans-serif;outline:none;}
   .username-wrap input::placeholder{color:var(--text2);}
 
@@ -228,6 +228,10 @@
     .msg-content{max-width:82%;}
     .chat-topbar,.messages-wrap,.input-area{padding-left:14px;padding-right:14px;}
     .auth-card{padding:26px 18px;}
+    .input-area{padding-bottom:max(13px, env(safe-area-inset-bottom));}
+    body{height:100dvh;}
+    #chatScreen{height:100dvh;}
+    .chat-main{height:100dvh;}
   }
 </style>
 </head>
