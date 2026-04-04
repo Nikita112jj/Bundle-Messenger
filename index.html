@@ -853,7 +853,7 @@ async function loadMessages(){
     const msgs=await dbQ('bundle_messages',{select:'*',order:'created_at.asc',limit:150});
     wrap.innerHTML='';lastSenderId=null;lastDate=null;renderedIds.clear();
     if(!msgs||msgs.length===0){wrap.innerHTML='<div class="sys-msg">Будь первым — напиши что-нибудь!</div>';isLoadingMessages=false;pollReady=true;return;}
-    msgs.forEach(m=>{renderedIds.add(String(m.id));renderMsg(m,false);});
+    msgs.forEach(m=>{renderMsg(m,false);});
     lastMsgId=msgs[msgs.length-1].id;
     wrap.scrollTop=wrap.scrollHeight;
   }catch(e){
