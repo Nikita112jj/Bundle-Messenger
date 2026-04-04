@@ -51,7 +51,7 @@
   /* @username field */
   .username-wrap{display:flex;background:var(--bg3);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:border-color .2s,box-shadow .2s;}
   .username-wrap:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow);}
-  .username-at{display:flex;align-items:center;justify-content:center;padding:0 6px 0 10px;background:var(--bg3);border-right:1px solid var(--border);color:var(--accent);font-size:14px;font-weight:700;font-family:'Syne',sans-serif;flex-shrink:0;width:28px;}
+  .username-at{display:flex;align-items:center;justify-content:center;width:36px;background:var(--bg3);border-right:1px solid var(--border);color:var(--accent);font-size:15px;font-weight:700;font-family:'Syne',sans-serif;flex-shrink:0;}
   .username-wrap input{flex:1;background:transparent;border:none;padding:11px 14px;color:var(--text);font-size:14px;font-family:'DM Sans',sans-serif;outline:none;}
   .username-wrap input::placeholder{color:var(--text2);}
 
@@ -259,7 +259,7 @@
     <!-- REGISTER -->
     <div class="auth-form" id="registerForm">
       <h2>Создать аккаунт</h2>
-      <p>Заполни данные — придёт код на почту</p>
+      <p>Заполни данные для регистрации</p>
       <div class="avatar-picker">
         <div class="avatar-wrap" onclick="document.getElementById('avatarInput').click()">
           <div id="avatarPreview"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
@@ -278,10 +278,6 @@
           <span class="username-at">@</span>
           <input type="text" id="regUsername" placeholder="твой_юзернейм" maxlength="20" autocomplete="off" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9_]/g,'')">
         </div>
-      </div>
-      <div class="input-group">
-        <label>EMAIL</label>
-        <input type="email" id="regEmail" placeholder="you@example.com">
       </div>
       <div class="input-group">
         <label>ПАРОЛЬ</label>
@@ -658,7 +654,6 @@ async function handleLogin(){
 async function handleRegister(){
   const nick=document.getElementById('regNick').value.trim();
   const uname=document.getElementById('regUsername').value.trim().toLowerCase().replace(/[^a-z0-9_]/g,'');
-  const email=document.getElementById('regEmail').value.trim().toLowerCase();
   const pass=document.getElementById('regPass').value;
   const pass2=document.getElementById('regPass2').value;
   const err=document.getElementById('regErr');err.textContent='';
@@ -666,7 +661,6 @@ async function handleRegister(){
   if(nick.length<2){err.textContent='Никнейм минимум 2 символа';return;}
   if(!uname||uname.length<2){err.textContent='Введи @username (минимум 2 символа)';return;}
   if(isAdmin(nick)||isAdminUser(uname)){err.textContent='Это имя зарезервировано';return;}
-  if(!email.includes('@')){err.textContent='Введи корректный email';return;}
   if(!pass||pass.length<4){err.textContent='Пароль минимум 4 символа';return;}
   if(pass!==pass2){err.textContent='Пароли не совпадают';return;}
   const btn=document.getElementById('registerBtn');btn.disabled=true;btn.textContent='Проверяем...';
@@ -675,14 +669,10 @@ async function handleRegister(){
     if(bn&&bn.length>0){err.textContent='Никнейм занят';btn.disabled=false;btn.textContent='Создать аккаунт';return;}
     const bu=await dbQ('bundle_users',{filter:`username=ilike.${encodeURIComponent(uname)}`,select:'id'});
     if(bu&&bu.length>0){err.textContent='@username занят';btn.disabled=false;btn.textContent='Создать аккаунт';return;}
-    const be=await dbQ('bundle_users',{filter:`email=eq.${encodeURIComponent(email)}`,select:'id'});
-    if(be&&be.length>0){err.textContent='Email уже используется';btn.disabled=false;btn.textContent='Создать аккаунт';return;}
-    const code=genCode();otpCode=code;otpData={nick,username:uname,email,passHash:hashP(pass),avatar:avatarDataUrl||null};otpMode='register';
-    try{await sendOtp(email,code,nick);}catch(e){console.warn(e);showToast('Не удалось отправить email',4000);}
-    document.getElementById('otpEmailShow').textContent=email;
-    document.getElementById('otpTitle').textContent='Подтверди почту';
-    document.getElementById('otpSubtitle').innerHTML=`Отправили код на<br><strong>${email}</strong>`;
-    clearOtpBoxes();switchTab('otp');
+    const uid='u_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
+    const res=await dbI('bundle_users',{id:uid,nickname:nick,username:uname,email:null,avatar:avatarDataUrl||null,password_hash:hashP(pass),last_seen:new Date().toISOString()});
+    me=res[0]||{id:uid,nickname:nick,username:uname,avatar:avatarDataUrl||null};
+    await finishLogin();
   }catch(e){console.error(e);err.textContent='Ошибка подключения';}
   btn.disabled=false;btn.textContent='Создать аккаунт';
 }
@@ -784,9 +774,9 @@ function enterChat(){
   document.getElementById('chatScreen').classList.add('active');
   updateSidebar();
   document.getElementById('adminMenuWrap').style.display=isAdmin(me.nickname)?'block':'none';
-  checkMute();connectPoll();updateOnline();
-  // Delay loadMessages so chatScreen is fully painted before rendering messages
-  requestAnimationFrame(()=>requestAnimationFrame(()=>loadMessages()));
+  checkMute();updateOnline();
+  // Load messages first, then start poll so renderedIds is populated before poll runs
+  requestAnimationFrame(()=>requestAnimationFrame(async()=>{await loadMessages();connectPoll();}));
   setInterval(updateOnline,30000);
   setInterval(()=>dbP('bundle_users',`id=eq.${me.id}`,{last_seen:new Date().toISOString()}).catch(()=>{}),20000);
   setInterval(checkMute,15000);
