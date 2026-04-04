@@ -769,14 +769,14 @@ function confirmLogout(){
 }
 
 // ── ENTER CHAT ──
-function enterChat(){
+async function enterChat(){
   document.getElementById('authScreen').classList.remove('active');
   document.getElementById('chatScreen').classList.add('active');
   updateSidebar();
   document.getElementById('adminMenuWrap').style.display=isAdmin(me.nickname)?'block':'none';
   checkMute();updateOnline();
-  // Load messages first, then start poll so renderedIds is populated before poll runs
-  requestAnimationFrame(()=>requestAnimationFrame(async()=>{await loadMessages();connectPoll();}));
+  await loadMessages();
+  connectPoll();
   setInterval(updateOnline,30000);
   setInterval(()=>dbP('bundle_users',`id=eq.${me.id}`,{last_seen:new Date().toISOString()}).catch(()=>{}),20000);
   setInterval(checkMute,15000);
@@ -886,7 +886,7 @@ function renderMsg(msg,scroll){
     bbl.appendChild(img);
     if(msg.content){const cap=document.createElement('div');cap.className='img-caption';cap.textContent=msg.content;bbl.appendChild(cap);}
     cont.appendChild(bbl);
-  } else {
+  } else if(msg.content){
     const bbl=document.createElement('div');bbl.className='bubble';bbl.textContent=msg.content;cont.appendChild(bbl);
   }
 
@@ -939,7 +939,7 @@ async function sendMessage(){
       try{imgUrl=await uploadImg(attachFile);}catch(e){showToast('Ошибка загрузки фото');inp.value=text;autoResize(inp);document.getElementById('sendBtn').disabled=!canSend();return;}
       clearImgAttach();
     }
-    const res=await dbI('bundle_messages',{user_id:me.id,user_nickname:me.nickname,user_avatar:me.avatar||null,content:text||null,image_url:imgUrl,channel:'global'});
+    const res=await dbI('bundle_messages',{user_id:me.id,user_nickname:me.nickname,user_avatar:me.avatar||null,content:text||null,image_url:imgUrl||null,channel:'global'});
     if(res&&res[0]){if(res[0].id>lastMsgId)lastMsgId=res[0].id;renderMsg(res[0],true);}
   }catch{showToast('Не удалось отправить');inp.value=text;autoResize(inp);document.getElementById('sendBtn').disabled=!canSend();}
 }
