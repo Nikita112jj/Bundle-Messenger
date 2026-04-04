@@ -976,10 +976,11 @@ function closeClearChatModal() {
 }
 async function confirmClearChat() {
   closeClearChatModal();
+  // Сразу очистить DOM
+  document.getElementById('messagesWrap').innerHTML = '<div class="sys-msg">Чат очищен администратором</div>';
+  renderedIds.clear(); lastSenderId = null; lastDate = null; lastMsgId = 0;
   try {
     await dbDelete('bundle_messages', 'id=gt.0');
-    document.getElementById('messagesWrap').innerHTML = '<div class="sys-msg">Чат очищен администратором</div>';
-    renderedIds.clear(); lastSenderId = null; lastDate = null; lastMsgId = 0;
     showToast('Чат очищен');
   } catch { showToast('Ошибка при очистке'); }
 }
@@ -1007,7 +1008,7 @@ async function loadMessages() {
       wrap.innerHTML = '<div class="sys-msg">Будь первым — напиши что-нибудь!</div>';
       return;
     }
-    msgs.forEach(m => { renderedIds.add(m.id); renderMessage(m, false); });
+    msgs.forEach(m => { renderedIds.add(String(m.id)); renderMessage(m, false); });
     if (msgs.length > 0) lastMsgId = msgs[msgs.length - 1].id;
     wrap.scrollTop = wrap.scrollHeight;
   } catch(e) {
@@ -1017,8 +1018,9 @@ async function loadMessages() {
 }
 
 function renderMessage(msg, scroll) {
-  if (msg.id && renderedIds.has(msg.id)) return;
-  if (msg.id) renderedIds.add(msg.id);
+  // Дедупликация только по числовому id
+  if (msg.id && renderedIds.has(String(msg.id))) return;
+  if (msg.id) renderedIds.add(String(msg.id));
 
   const wrap = document.getElementById('messagesWrap');
   const isOwn = msg.user_id === me?.id;
@@ -1031,7 +1033,6 @@ function renderMessage(msg, scroll) {
   }
 
   const showSender = !isOwn && msg.user_id !== lastSenderId;
-  const showAvatar = msg.user_id !== lastSenderId;
   lastSenderId = msg.user_id;
 
   const isAdmin = isAdminNick(msg.user_nickname || '');
@@ -1039,19 +1040,17 @@ function renderMessage(msg, scroll) {
   const group = document.createElement('div');
   group.className = 'msg-group' + (isOwn ? ' own' : '');
   group.dataset.msgId = msg.id;
-  group.dataset.msgContent = msg.content;
-  group.dataset.msgUserId = msg.user_id;
 
-  // Click = context menu
   group.addEventListener('click', (e) => {
     e.stopPropagation();
     showMsgMenu(e, { id: msg.id, content: msg.content, user_id: msg.user_id });
   });
 
+  // Аватар всегда показывается (как в первой версии)
   const avatarEl = document.createElement('div');
-  avatarEl.className = 'msg-avatar' + (showAvatar ? '' : ' hidden');
+  avatarEl.className = 'msg-avatar';
   if (msg.user_avatar) {
-    avatarEl.innerHTML = `<img src="${msg.user_avatar}" alt="">`;
+    avatarEl.innerHTML = `<img src="${msg.user_avatar}" style="width:28px;height:28px;border-radius:50%;object-fit:cover">`;
   } else {
     avatarEl.textContent = (msg.user_nickname || '?')[0].toUpperCase();
   }
@@ -1112,13 +1111,17 @@ async function msgMenuDelete() {
   if (!ctxMsg) return;
   const id = ctxMsg.id;
   hideMsgMenu();
+  // Сразу удалить из DOM (не ждать реалтайм)
+  const el = document.querySelector(`[data-msg-id="${id}"]`);
+  if (el) el.remove();
+  renderedIds.delete(String(id));
   try {
     await dbDelete('bundle_messages', `id=eq.${id}`);
-    const el = document.querySelector(`[data-msg-id="${id}"]`);
-    if (el) el.remove();
-    renderedIds.delete(id);
     showToast('Сообщение удалено');
-  } catch { showToast('Ошибка при удалении'); }
+  } catch {
+    // Если ошибка — вернуть сообщение обратно нельзя, просто показать ошибку
+    showToast('Ошибка при удалении');
+  }
 }
 
 // ── SEND ──
@@ -1174,17 +1177,10 @@ function connectRealtime() {
   ws.onopen = () => {
     wsConnected = true;
     ws.send(JSON.stringify({
-      topic: 'realtime:bundle_global',
+      topic: 'realtime:global-chat',
       event: 'phx_join',
-      payload: { config: { broadcast: { self: false }, postgres_changes: [{ event: 'INSERT', schema: 'public', table: 'bundle_messages' }] } },
+      payload: { config: { broadcast: { self: true }, postgres_changes: [{ event: 'INSERT', schema: 'public', table: 'bundle_messages' }, { event: 'DELETE', schema: 'public', table: 'bundle_messages' }] } },
       ref: '1'
-    }));
-    // Для DELETE тоже подписываемся
-    ws.send(JSON.stringify({
-      topic: 'realtime:bundle_global_del',
-      event: 'phx_join',
-      payload: { config: { postgres_changes: [{ event: 'DELETE', schema: 'public', table: 'bundle_messages' }] } },
-      ref: '2'
     }));
     wsAliveTimer = setInterval(() => {
       if (ws && ws.readyState === WebSocket.OPEN) {
@@ -1197,17 +1193,27 @@ function connectRealtime() {
   ws.onmessage = (e) => {
     try {
       const msg = JSON.parse(e.data);
-      if (msg.event === 'postgres_changes') {
-        const d = msg.payload?.data;
-        if (d?.type === 'INSERT' && d.record) {
-          if (d.record.id > lastMsgId) lastMsgId = d.record.id;
-          renderMessage(d.record, true);
+      // Supabase realtime v1 и v2 форматы
+      const payload = msg.payload;
+      const data = payload?.data;
+      if (msg.event === 'postgres_changes' && data) {
+        if (data.type === 'INSERT' && data.record) {
+          const rec = data.record;
+          if (rec.id > lastMsgId) lastMsgId = rec.id;
+          renderMessage(rec, true);
         }
-        if (d?.type === 'DELETE' && d.old_record?.id) {
-          const el = document.querySelector(`[data-msg-id="${d.old_record.id}"]`);
-          if (el) el.remove();
-          renderedIds.delete(d.old_record.id);
+        if (data.type === 'DELETE') {
+          const oldId = data.old_record?.id || data.record?.id;
+          if (oldId) {
+            const el = document.querySelector(`[data-msg-id="${oldId}"]`);
+            if (el) el.remove();
+            renderedIds.delete(String(oldId));
+          }
         }
+      }
+      // heartbeat ответ
+      if (msg.event === 'phx_reply' && payload?.status === 'ok') {
+        // подписка подтверждена
       }
     } catch {}
   };
