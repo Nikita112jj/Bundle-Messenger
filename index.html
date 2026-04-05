@@ -51,7 +51,7 @@
   /* @username field */
   .username-wrap{display:flex;align-items:center;background:var(--bg3);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:border-color .2s,box-shadow .2s;}
   .username-wrap:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow);}
-  .username-at{padding:0 2px 0 12px;color:var(--accent);font-size:15px;font-weight:700;flex-shrink:0;line-height:1;display:flex;align-items:center;}
+  .username-at{padding:0 8px 0 12px;color:var(--accent);font-size:15px;font-weight:700;flex-shrink:0;display:flex;align-items:center;border-right:1px solid var(--border);margin-right:2px;}
   .username-wrap input{flex:1;background:transparent;border:none;padding:11px 14px;color:var(--text);font-size:14px;font-family:'DM Sans',sans-serif;outline:none;}
   .username-wrap input::placeholder{color:var(--text2);}
 
@@ -144,6 +144,14 @@
   .av-grad-5{background:linear-gradient(135deg,#8b5cf6,#ec4899);}
   .av-grad-6{background:linear-gradient(135deg,#06b6d4,#10b981);}
   .av-grad-7{background:linear-gradient(135deg,#f97316,#eab308);}
+  .av-grad-8{background:linear-gradient(135deg,#a855f7,#3b82f6);}
+  .av-grad-9{background:linear-gradient(135deg,#14b8a6,#6366f1);}
+  .av-grad-10{background:linear-gradient(135deg,#f43f5e,#f97316);}
+  .av-grad-11{background:linear-gradient(135deg,#84cc16,#06b6d4);}
+  .av-grad-12{background:linear-gradient(135deg,#e879f9,#8b5cf6);}
+  .av-grad-13{background:linear-gradient(135deg,#0ea5e9,#10b981);}
+  .av-grad-14{background:linear-gradient(135deg,#fb923c,#ec4899);}
+  .av-grad-15{background:linear-gradient(135deg,#4ade80,#3b82f6);}
   .msg-content{max-width:65%;display:flex;flex-direction:column;gap:2px;}
   .msg-group.own .msg-content{align-items:flex-end;}
   .msg-sender{font-size:11px;font-weight:600;color:var(--accent2);padding:0 4px;margin-bottom:1px;}
@@ -218,6 +226,7 @@
   .loading-msg{color:var(--text2);font-size:14px;text-align:center;padding:20px;}
   .sys-msg{text-align:center;font-size:12px;color:var(--text2);padding:4px 12px;background:var(--bg3);border-radius:20px;align-self:center;margin:6px 0;}
   .dm-modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+  #confirmModal{z-index:500;}
   .dm-modal-bg.show{display:flex;}
   .dm-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;cursor:pointer;transition:background .15s;color:var(--text2);font-size:13px;}
   .dm-item:hover{background:var(--bg3);color:var(--text);}
@@ -282,7 +291,6 @@
         <label>ПАРОЛЬ</label>
         <input type="password" id="loginPass" placeholder="••••••••" onkeydown="if(event.key==='Enter')handleLogin()">
       </div>
-      <span class="forgot-link" onclick="switchTab('forgot')">Забыли пароль?</span>
       <button class="btn-primary" id="loginBtn" onclick="handleLogin()">Войти</button>
       <div class="err-msg" id="loginErr"></div>
     </div>
@@ -338,34 +346,6 @@
       <div class="otp-resend">Не пришло? <span onclick="resendOtp()">Отправить снова</span></div>
     </div>
 
-    <!-- FORGOT -->
-    <div class="auth-form" id="forgotForm">
-      <h2>Восстановление пароля</h2>
-      <p>Введи email — пришлём код</p>
-      <div class="input-group">
-        <label>EMAIL</label>
-        <input type="email" id="forgotEmail" placeholder="you@example.com" onkeydown="if(event.key==='Enter')handleForgot()">
-      </div>
-      <button class="btn-primary" id="forgotBtn" onclick="handleForgot()">Получить код</button>
-      <div class="err-msg" id="forgotErr"></div>
-      <div style="font-size:12px;color:var(--text2);text-align:center;margin-top:8px;cursor:pointer" onclick="switchTab('login')">← Назад ко входу</div>
-    </div>
-
-    <!-- RESET -->
-    <div class="auth-form" id="resetForm">
-      <h2>Новый пароль</h2>
-      <p>Придумай новый пароль</p>
-      <div class="input-group">
-        <label>НОВЫЙ ПАРОЛЬ</label>
-        <input type="password" id="newPass" placeholder="Минимум 4 символа">
-      </div>
-      <div class="input-group">
-        <label>ПОВТОРИ</label>
-        <input type="password" id="newPass2" placeholder="••••••••" onkeydown="if(event.key==='Enter')handleReset()">
-      </div>
-      <button class="btn-primary" id="resetBtn" onclick="handleReset()">Сохранить пароль</button>
-      <div class="err-msg" id="resetErr"></div>
-    </div>
   </div>
 </div>
 
@@ -517,6 +497,21 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- CUSTOM CONFIRM MODAL -->
+<div class="dm-modal-bg" id="confirmModal">
+  <div class="modal" style="gap:14px">
+    <div style="width:48px;height:48px;background:rgba(248,113,113,.15);border-radius:13px;display:flex;align-items:center;justify-content:center;margin:0 auto;border:1px solid rgba(248,113,113,.3)">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <h3 id="confirmTitle" style="text-align:center">Подтверди действие</h3>
+    <p id="confirmText" style="color:var(--text2);font-size:13px;text-align:center"></p>
+    <div class="modal-btns">
+      <button class="btn-secondary" id="confirmCancelBtn">Отмена</button>
+      <button id="confirmOkBtn" style="flex:1;background:linear-gradient(135deg,#ef4444,#f87171);border:none;border-radius:10px;padding:10px;color:#fff;font-size:14px;font-weight:600;cursor:pointer">Подтвердить</button>
+    </div>
+  </div>
+</div>
+
 <!-- DM NEW CHAT MODAL -->
 <div class="dm-modal-bg" id="newDMModal">
   <div class="modal">
@@ -666,13 +661,13 @@ async function sendOtp(email,code,name){
 
 // ── TABS ──
 function switchTab(tab){
-  ['login','register','otp','forgot','reset'].forEach(f=>{
+  ['login','register','otp'].forEach(f=>{
     document.getElementById(f+'Form').classList.toggle('active',f===tab);
     const b=document.getElementById('tab'+f[0].toUpperCase()+f.slice(1));
     if(b)b.classList.toggle('active',f===tab);
   });
   document.getElementById('authTabs').style.display=(tab==='login'||tab==='register')?'':'none';
-  ['loginErr','regErr','otpErr','forgotErr','resetErr'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent='';});
+  ['loginErr','regErr','otpErr'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent='';});
 }
 
 function onLoginNickInput(v){
@@ -854,7 +849,7 @@ function updateSidebar(){
   av.innerHTML=me.avatar?`<img src="${me.avatar}">`:'';
   if(!me.avatar){
     av.textContent=me.nickname[0].toUpperCase();
-    const _gi=(me.id||'').split('').reduce((a,c)=>a+c.charCodeAt(0),0)%8;
+    const _gi=(me.id||'').split('').reduce((a,c)=>a+c.charCodeAt(0),0)%16;
     av.className='my-avatar av-grad-'+_gi;
     av.style.color='#fff';
   } else {
@@ -904,7 +899,7 @@ async function saveAvatar(){if(!newModalAvatar){closeAvatarModal();return;}const
 function toggleAdminMenu(){document.getElementById('adminActionsMenu').classList.toggle('open');}
 async function adminResetAvatars(){
   document.getElementById('adminActionsMenu').classList.remove('open');
-  if(!confirm('Сбросить аватары всех пользователей?'))return;
+  if(!await customConfirm('Сбросить аватары?','Аватары всех пользователей будут удалены.'))return;
   try{
     await fetch(`${SUPABASE_URL}/rest/v1/rpc/reset_all_avatars`,{method:'POST',headers:H,body:'{}'});
     showToast('Аватары сброшены ✅');
@@ -912,10 +907,13 @@ async function adminResetAvatars(){
 }
 async function adminDeleteAllUsers(){
   document.getElementById('adminActionsMenu').classList.remove('open');
-  if(!confirm('УДАЛИТЬ ВСЕХ ПОЛЬЗОВАТЕЛЕЙ? Это необратимо!'))return;
-  if(!confirm('Точно уверен? Все аккаунты кроме твоего будут удалены.'))return;
+  if(!await customConfirm('Удалить всех?','Все аккаунты кроме твоего будут удалены. Это необратимо!'))return;
   try{
     await fetch(`${SUPABASE_URL}/rest/v1/rpc/delete_all_users`,{method:'POST',headers:H,body:'{}'});
+    // Clear all DM chats from sidebar
+    document.getElementById('dmList').innerHTML='';
+    dmUnread={};
+    if(currentMode==='dm'){switchToGlobal();}
     showToast('Все пользователи удалены ✅');
   }catch{showToast('Ошибка');}
 }
@@ -964,7 +962,7 @@ function renderMsg(msg,scroll){
   grp.addEventListener('click',e=>{e.stopPropagation();showCtxMenu(e,{id:msg.id,content:msg.content,user_id:msg.user_id,user_nickname:msg.user_nickname||'',image_url:msg.image_url||null});});
 
   const av=document.createElement('div');
-  const _gradIdx=(s=>s.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%8)(msg.user_id||'');
+  const _gradIdx=(s=>s.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%16)(msg.user_id||'');
   av.className='msg-avatar av-grad-'+_gradIdx;
   if(msg.user_avatar)av.innerHTML=`<img src="${msg.user_avatar}">`;
   else{av.textContent=(msg.user_nickname||'?')[0].toUpperCase();av.style.color='#fff';}
@@ -1112,6 +1110,20 @@ async function updateOnline(){
   }
 })();
 
+// ── CUSTOM CONFIRM ──
+function customConfirm(title, text){
+  return new Promise(resolve=>{
+    document.getElementById('confirmTitle').textContent=title;
+    document.getElementById('confirmText').textContent=text;
+    document.getElementById('confirmModal').classList.add('show');
+    const ok=document.getElementById('confirmOkBtn');
+    const cancel=document.getElementById('confirmCancelBtn');
+    const cleanup=()=>{document.getElementById('confirmModal').classList.remove('show');ok.onclick=null;cancel.onclick=null;};
+    ok.onclick=()=>{cleanup();resolve(true);};
+    cancel.onclick=()=>{cleanup();resolve(false);};
+  });
+}
+
 // ── DM STATE ──
 let currentMode='global'; // 'global' or dm user_id
 let currentDMUser=null;
@@ -1148,7 +1160,7 @@ function updateDMBadge(fromId, msg){
   let el=document.getElementById('dm-'+fromId);
   if(!el){
     // Create DM entry in sidebar
-    const gradIdx=fromId.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%8;
+    const gradIdx=fromId.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%16;
     el=document.createElement('div');
     el.className='dm-item';el.id='dm-'+fromId;
     const nick=msg.from_nick||'?';
@@ -1196,7 +1208,7 @@ async function openDMChat(target){
   currentDMUser=target;
   closeSidebar();
   // Update topbar
-  const gradIdx=target.id.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%8;
+  const gradIdx=target.id.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%16;
   document.getElementById('chatTopbarIcon').innerHTML=`<div class="dm-avatar av-grad-${gradIdx}" style="width:34px;height:34px;font-size:13px;font-weight:700;color:#fff">${target.avatar?`<img src="${target.avatar}" style="width:34px;height:34px;border-radius:50%;object-fit:cover">`:(target.nickname||'?')[0].toUpperCase()}</div>`;
   document.getElementById('chatTopbarTitle').textContent=target.nickname;
   document.getElementById('chatTopbarSub').textContent='@'+target.username;
@@ -1215,11 +1227,11 @@ async function openDMChat(target){
 }
 
 function addDMToSidebar(target){
-  const gradIdx=target.id.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%8;
+  const gradIdx=target.id.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%16;
   const el=document.createElement('div');
   el.className='dm-item active';el.id='dm-'+target.id;
-  el.innerHTML=`<div class="dm-avatar av-grad-${gradIdx}" style="color:#fff">${target.avatar?`<img src="${target.avatar}" style="width:28px;height:28px;border-radius:50%;object-fit:cover">`:(target.nickname||'?')[0].toUpperCase()}</div><span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${target.nickname}</span>`;
-  el.onclick=()=>openDMChat(target);
+  el.innerHTML=`<div class="dm-avatar av-grad-${gradIdx}" style="color:#fff;flex-shrink:0">${target.avatar?`<img src="${target.avatar}" style="width:28px;height:28px;border-radius:50%;object-fit:cover">`:(target.nickname||'?')[0].toUpperCase()}</div><span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${target.nickname}</span><button onclick="deleteDMChat('${target.id}',event)" style="background:none;border:none;cursor:pointer;color:var(--text2);padding:3px;border-radius:6px;flex-shrink:0;display:flex;align-items:center" onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='var(--text2)'"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg></button>`;
+  el.onclick=(e)=>{if(!e.target.closest('button'))openDMChat(target);};
   document.getElementById('dmList').appendChild(el);
 }
 
@@ -1262,7 +1274,7 @@ function renderDMMsg(msg,scroll=false){
   const nick=isOwn?me.nickname:(currentDMUser?.nickname||msg.from_nick||'?');
   const avatar=isOwn?me.avatar:(currentDMUser?.avatar||null);
   const uid=msg.from_id;
-  const gradIdx=uid.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%8;
+  const gradIdx=uid.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%16;
   const ds=fmtDate(msg.created_at);
   if(ds!==lastDate){const d=document.createElement('div');d.className='date-divider';d.textContent=ds;wrap.appendChild(d);lastDate=ds;lastSenderId=null;}
   const showSnd=!isOwn&&uid!==lastSenderId;lastSenderId=uid;
@@ -1292,6 +1304,15 @@ function renderDMMsg(msg,scroll=false){
   if(scroll){const atBot=wrap.scrollHeight-wrap.scrollTop-wrap.clientHeight<120;if(atBot||isOwn)wrap.scrollTop=wrap.scrollHeight;}
 }
 
+function deleteDMChat(uid, e){
+  e.stopPropagation();
+  const el=document.getElementById('dm-'+uid);
+  if(el)el.remove();
+  if(currentMode==='dm'&&currentDMUser&&currentDMUser.id===uid){
+    switchToGlobal();
+  }
+  delete dmUnread[uid];
+}
 function switchToGlobal(){
   currentMode='global';currentDMUser=null;
   clearInterval(dmPollTimer);
