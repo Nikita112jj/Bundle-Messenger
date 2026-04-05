@@ -1273,21 +1273,23 @@ function customConfirm(title, text){
 async function markMessagesRead(){
   if(!me||currentMode!=='global')return;
   try{
-    // Get recent messages not by me, increment read_count
     const msgs=await dbQ('bundle_messages',{filter:`user_id=neq.${me.id}`,select:'id',order:'id.desc',limit:30});
     if(!msgs||!msgs.length)return;
-    // Store which we already counted in sessionStorage
     const readKey='bundle-read-'+me.id;
     const alreadyRead=new Set(JSON.parse(sessionStorage.getItem(readKey)||'[]'));
     const toMark=msgs.filter(m=>!alreadyRead.has(m.id));
-    for(const m of toMark){
-      await fetch(`${SUPABASE_URL}/rest/v1/bundle_messages?id=eq.${m.id}`,{
-        method:'PATCH',headers:H,body:JSON.stringify({read_count:1}) // Supabase can't increment easily, use RPC
-      });
-      alreadyRead.add(m.id);
+    if(toMark.length>0){
+      // Use RPC to safely increment
+      for(const m of toMark){
+        await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_read_count`,{
+          method:'POST',headers:H,
+          body:JSON.stringify({p_msg_id:m.id,p_user_id:me.id})
+        });
+        alreadyRead.add(m.id);
+      }
+      sessionStorage.setItem(readKey,JSON.stringify([...alreadyRead].slice(-200)));
+      updateVisibleCheckmarks();
     }
-    sessionStorage.setItem(readKey,JSON.stringify([...alreadyRead].slice(-200)));
-    updateVisibleCheckmarks();
   }catch{}
 }
 
@@ -1323,9 +1325,19 @@ async function loadDMChats(){
   try{
     const chats=await dbQ('bundle_dm_chats',{filter:`user_id=eq.${me.id}`,select:'*'});
     if(!chats||!chats.length)return;
+    // Fetch fresh user data for all peers at once
+    const peerIds=chats.map(c=>c.peer_id).join(',');
+    let freshUsers={};
+    try{
+      const users=await dbQ('bundle_users',{filter:`id=in.(${peerIds})`,select:'id,nickname,username,avatar'});
+      if(users)users.forEach(u=>{freshUsers[u.id]=u;});
+    }catch{}
     for(const c of chats){
       if(document.getElementById('dm-'+c.peer_id))continue;
-      const target={id:c.peer_id,nickname:c.peer_nick,username:c.peer_username,avatar:c.peer_avatar};
+      const fresh=freshUsers[c.peer_id];
+      // Skip if user no longer exists
+      if(!fresh)continue;
+      const target={id:c.peer_id,nickname:fresh.nickname||c.peer_nick,username:fresh.username||c.peer_username||'',avatar:fresh.avatar||c.peer_avatar};
       const gradIdx=c.peer_id.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%16;
       const el=document.createElement('div');
       el.className='dm-item';el.id='dm-'+c.peer_id;
@@ -1454,6 +1466,11 @@ async function startDM(){
 
 async function openDMChat(target){
   currentMode='dm';
+  // Fetch fresh user data to get username/avatar
+  try{
+    const fresh=await dbQ('bundle_users',{filter:`id=eq.${target.id}`,select:'id,nickname,username,avatar'});
+    if(fresh&&fresh[0])target={...target,...fresh[0]};
+  }catch{}
   currentDMUser=target;
   closeSidebar();
   // Update topbar
