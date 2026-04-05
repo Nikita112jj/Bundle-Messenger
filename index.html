@@ -637,7 +637,7 @@ function cancelReAuth() {
   document.getElementById('reAuthModal').classList.remove('show');
   if (window._reAuthResolve) { window._reAuthResolve(''); window._reAuthResolve = null; }
 }
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZqcXJmb2p1eHlzaWh4c3l1aGx5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyODYyNjUsImV4cCI6MjA5MDg2MjI2NX0.DvMZa0MyB2MvW1LZsU3rnL6rU3a-87J7PHJS62SAKWQ';
+const SUPABASE_KEY = 'sb_publishable_Ss8vp58JPU65AwQ6k6T_2A_0DR88FsA';
 const STORAGE_BUCKET = 'bundle-images'; // создай bucket с таким именем в Supabase Storage → Public
 
 // EmailJS — зарегистрируйся на emailjs.com (бесплатно 200 писем/мес)
@@ -981,9 +981,16 @@ function calcMuteDate(){const n=parseInt(document.getElementById('muteDurationNu
 function updateMutePreview(){const d=calcMuteDate();document.getElementById('muteUntilPreview').textContent='до: '+d.toLocaleString('ru-RU',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'});}
 async function confirmMute(){
   if(!muteUid)return;
+  let adminPass=me._adminPass||sessionStorage.getItem('_ap')||'';
+  if(!adminPass){adminPass=await promptAdminPass();if(!adminPass)return;}
   try{
-    await edgeCall('mute',{userId:muteUid,until:calcMuteDate().toISOString()});
-    showToast(`${muteNick} замьючен`);closeMuteModal();hideMsgMenu();
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_mute_user`,{
+      method:'POST',headers:H,
+      body:JSON.stringify({p_user_id:muteUid,p_until:calcMuteDate().toISOString(),p_admin_pass:adminPass})
+    });
+    const ok=await r.json();
+    if(!ok){showToast('Ошибка: неверный пароль или нельзя замутить');return;}
+    showToast(`${muteNick} замьючен ✅`);closeMuteModal();hideMsgMenu();
   }catch(e){showToast('Ошибка: '+e.message);}
 }
 
@@ -1019,10 +1026,17 @@ async function adminDeleteAllUsers(){
 function adminClearChat(){document.getElementById('adminActionsMenu').classList.remove('open');document.getElementById('clearChatModal').classList.add('show');}
 async function confirmClearChat(){
   document.getElementById('clearChatModal').classList.remove('show');
+  let adminPass=me._adminPass||sessionStorage.getItem('_ap')||'';
+  if(!adminPass){adminPass=await promptAdminPass();if(!adminPass)return;}
   document.getElementById('messagesWrap').innerHTML='<div class="sys-msg">Чат очищен</div>';
   renderedIds.clear();lastSenderId=null;lastDate=null;lastMsgId=0;
-  try{await edgeCall('clear_chat',{});showToast('Чат очищен');}
-  catch(e){showToast('Ошибка: '+e.message);}
+  try{
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_clear_chat`,{
+      method:'POST',headers:H,
+      body:JSON.stringify({p_admin_pass:adminPass})
+    });
+    showToast('Чат очищен ✅');
+  }catch(e){showToast('Ошибка: '+e.message);}
 }
 
 // ── MESSAGES ──
@@ -1149,11 +1163,17 @@ function cancelReply(){
 }
 async function ctxDelete(){
   if(!ctxMsg)return;
-  const id=ctxMsg.id;hideMsgMenu();
+  const id=ctxMsg.id;
   const el=document.querySelector(`[data-msg-id="${id}"]`);if(el)el.remove();renderedIds.delete(String(id));
+  hideMsgMenu();
   try{
     if(isAdmin(me?.nickname)){
-      await edgeCall('delete_message',{msgId:id});
+      let adminPass=me._adminPass||sessionStorage.getItem('_ap')||'';
+      if(!adminPass){adminPass=await promptAdminPass();if(!adminPass)return;}
+      await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_delete_message`,{
+        method:'POST',headers:H,
+        body:JSON.stringify({p_msg_id:id,p_admin_pass:adminPass})
+      });
     } else {
       await dbD('bundle_messages',`id=eq.${id}`);
     }
@@ -1163,9 +1183,15 @@ async function ctxDelete(){
 function ctxMute(){if(!ctxMsg)return;const uid=ctxMsg.user_id,nick=ctxMsg.user_nickname;hideMsgMenu();openMuteModal(uid,nick);}
 async function ctxUnmute(){
   if(!ctxMsg)return;
-  const uid=ctxMsg.user_id,nick=ctxMsg.user_nickname;hideMsgMenu();
+  const uid=ctxMsg.user_id,nick=ctxMsg.user_nickname;
+  const saved=ctxMsg;hideMsgMenu();
+  let adminPass=me._adminPass||sessionStorage.getItem('_ap')||'';
+  if(!adminPass){adminPass=await promptAdminPass();if(!adminPass)return;}
   try{
-    await edgeCall('unmute',{userId:uid});
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_mute_user`,{
+      method:'POST',headers:H,
+      body:JSON.stringify({p_user_id:uid,p_until:null,p_admin_pass:adminPass})
+    });
     showToast(`${nick} размучен ✅`);
   }catch(e){showToast('Ошибка: '+e.message);}
 }
