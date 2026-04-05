@@ -870,7 +870,7 @@ async function enterChat(){
   await loadMessages();
   connectPoll();
   startBgDMPoll();
-  setTimeout(cleanStaleDMs, 1000);
+  setTimeout(()=>{loadDMChats();cleanStaleDMs();}, 800);
   setInterval(updateOnline,30000);
   setInterval(()=>{if(document.visibilityState==='visible')markMessagesRead();},5000);
   setInterval(()=>dbP('bundle_users',`id=eq.${me.id}`,{last_seen:new Date().toISOString()}).catch(()=>{}),20000);
@@ -1080,7 +1080,7 @@ function renderMsg(msg,scroll){
   const tm=document.createElement('span');tm.className='msg-time';tm.textContent=fmtTime(msg.created_at);tmWrap.appendChild(tm);
   if(isOwn&&currentMode!=='dm'){
     const ticks=document.createElement('span');ticks.className='msg-ticks';ticks.id='ticks-'+msg.id;
-    const isRead=Array.isArray(msg.read_by)&&msg.read_by.some(id=>id!==me.id);
+    const isRead=(msg.read_count||0)>0;
     ticks.innerHTML=isRead
       ?'<svg viewBox="0 0 18 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 5l3 3 6-6"/><path d="M7 5l3 3 6-6"/></svg>'
       :'<svg viewBox="0 0 12 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 5l3 3 6-6"/></svg>';
@@ -1273,27 +1273,32 @@ function customConfirm(title, text){
 async function markMessagesRead(){
   if(!me||currentMode!=='global')return;
   try{
-    // Get unread messages not sent by me without my id in read_by
-    const msgs=await dbQ('bundle_messages',{filter:`user_id=neq.${me.id}`,select:'id,read_by',order:'id.desc',limit:50});
+    // Get recent messages not by me, increment read_count
+    const msgs=await dbQ('bundle_messages',{filter:`user_id=neq.${me.id}`,select:'id',order:'id.desc',limit:30});
     if(!msgs||!msgs.length)return;
-    const unread=msgs.filter(m=>!m.read_by||!m.read_by.includes(me.id));
-    for(const m of unread){
-      const newReadBy=[...(m.read_by||[]),me.id];
-      await dbP('bundle_messages',`id=eq.${m.id}`,{read_by:newReadBy});
+    // Store which we already counted in sessionStorage
+    const readKey='bundle-read-'+me.id;
+    const alreadyRead=new Set(JSON.parse(sessionStorage.getItem(readKey)||'[]'));
+    const toMark=msgs.filter(m=>!alreadyRead.has(m.id));
+    for(const m of toMark){
+      await fetch(`${SUPABASE_URL}/rest/v1/bundle_messages?id=eq.${m.id}`,{
+        method:'PATCH',headers:H,body:JSON.stringify({read_count:1}) // Supabase can't increment easily, use RPC
+      });
+      alreadyRead.add(m.id);
     }
-    // Update checkmarks for own messages visible on screen
+    sessionStorage.setItem(readKey,JSON.stringify([...alreadyRead].slice(-200)));
     updateVisibleCheckmarks();
   }catch{}
 }
 
 async function updateVisibleCheckmarks(){
   try{
-    const myMsgs=await dbQ('bundle_messages',{filter:`user_id=eq.${me.id}`,select:'id,read_by',order:'id.desc',limit:50});
+    const myMsgs=await dbQ('bundle_messages',{filter:`user_id=eq.${me.id}`,select:'id,read_count',order:'id.desc',limit:50});
     if(!myMsgs)return;
     myMsgs.forEach(m=>{
       const el=document.getElementById('ticks-'+m.id);
       if(!el)return;
-      const isRead=Array.isArray(m.read_by)&&m.read_by.some(id=>id!==me.id);
+      const isRead=(m.read_count||0)>0;
       el.innerHTML=isRead
         ?'<svg viewBox="0 0 18 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 5l3 3 6-6"/><path d="M7 5l3 3 6-6"/></svg>'
         :'<svg viewBox="0 0 12 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 5l3 3 6-6"/></svg>';
@@ -1313,6 +1318,54 @@ let dmUnread={}; // uid -> count
 let bgDMPoll=null;
 
 // Background poll for incoming DMs from anyone
+async function loadDMChats(){
+  if(!me)return;
+  try{
+    const chats=await dbQ('bundle_dm_chats',{filter:`user_id=eq.${me.id}`,select:'*'});
+    if(!chats||!chats.length)return;
+    for(const c of chats){
+      if(document.getElementById('dm-'+c.peer_id))continue;
+      const target={id:c.peer_id,nickname:c.peer_nick,username:c.peer_username,avatar:c.peer_avatar};
+      const gradIdx=c.peer_id.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%16;
+      const el=document.createElement('div');
+      el.className='dm-item';el.id='dm-'+c.peer_id;
+      el.innerHTML=`<div class="dm-avatar av-grad-${gradIdx}" style="color:#fff;flex-shrink:0">${c.peer_avatar?`<img src="${c.peer_avatar}" style="width:28px;height:28px;border-radius:50%;object-fit:cover">`:(c.peer_nick||'?')[0].toUpperCase()}</div><div style="flex:1;min-width:0"><div style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.peer_nick}</div>${c.peer_username?`<div style="font-size:10px;color:var(--text2)">@${c.peer_username}</div>`:''}</div><button onclick="deleteDMChat('${c.peer_id}',event)" style="background:none;border:none;cursor:pointer;color:var(--text2);padding:3px;border-radius:6px;flex-shrink:0;display:flex;align-items:center" onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='var(--text2)'"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg></button>`;
+      el.onclick=(e)=>{if(!e.target.closest('button'))openDMChat(target);};
+      document.getElementById('dmList').appendChild(el);
+    }
+    // Check unread counts for each chat
+    checkAllDMUnread();
+  }catch(e){console.error('loadDMChats:',e);}
+}
+
+async function checkAllDMUnread(){
+  if(!me)return;
+  try{
+    // Get all incoming DMs not yet read
+    const reads=await dbQ('bundle_dm_reads',{filter:`user_id=eq.${me.id}`,select:'*'});
+    const readMap={};
+    if(reads)reads.forEach(r=>readMap[r.peer_id]=r.last_read_id||0);
+    // For each DM chat check if there are unread msgs
+    const chats=document.querySelectorAll('#dmList .dm-item');
+    for(const el of chats){
+      const uid=el.id.replace('dm-','');
+      const lastRead=readMap[uid]||0;
+      const msgs=await dbQ('bundle_dms',{filter:`from_id=eq.${uid}&to_id=eq.${me.id}&id=gt.${lastRead}`,select:'id',limit:99});
+      const count=msgs?msgs.length:0;
+      if(count>0){
+        dmUnread[uid]=count;
+        let badge=document.getElementById('badge-'+uid);
+        if(!badge){
+          badge=document.createElement('span');badge.className='unread-badge';badge.id='badge-'+uid;
+          const trash=el.querySelector('button');
+          if(trash)el.insertBefore(badge,trash);else el.appendChild(badge);
+        }
+        badge.textContent=count;
+      }
+    }
+  }catch(e){console.error('checkAllDMUnread:',e);}
+}
+
 async function cleanStaleDMs(){
   // Remove DM entries for users that no longer exist
   const dmEls=document.querySelectorAll('#dmList .dm-item');
@@ -1362,6 +1415,8 @@ function updateDMBadge(fromId, msg){
     };
     document.getElementById('dmList').appendChild(el);
     showToast('💬 Новое сообщение от '+nick);
+    // Save to server so it persists after reload
+    try{fetch(`${SUPABASE_URL}/rest/v1/bundle_dm_chats`,{method:'POST',headers:{...H,'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({user_id:me.id,peer_id:fromId,peer_nick:nick,peer_username:'',peer_avatar:null})});}catch{}
   } else {
     let badge=document.getElementById('badge-'+fromId);
     if(!badge){badge=document.createElement('span');badge.className='unread-badge';badge.id='badge-'+fromId;
@@ -1427,14 +1482,20 @@ function addDMToSidebar(target){
   el.innerHTML=`<div class="dm-avatar av-grad-${gradIdx}" style="color:#fff;flex-shrink:0">${target.avatar?`<img src="${target.avatar}" style="width:28px;height:28px;border-radius:50%;object-fit:cover">`:(target.nickname||'?')[0].toUpperCase()}</div><span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${target.nickname}</span><button onclick="deleteDMChat('${target.id}',event)" style="background:none;border:none;cursor:pointer;color:var(--text2);padding:3px;border-radius:6px;flex-shrink:0;display:flex;align-items:center" onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='var(--text2)'"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg></button>`;
   el.onclick=(e)=>{if(!e.target.closest('button'))openDMChat(target);};
   document.getElementById('dmList').appendChild(el);
+  // Save DM chat to server
+  try{fetch(`${SUPABASE_URL}/rest/v1/bundle_dm_chats`,{method:'POST',headers:{...H,'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({user_id:me.id,peer_id:target.id,peer_nick:target.nickname,peer_username:target.username||'',peer_avatar:target.avatar||null})});}catch{}
 }
 
 async function loadDMMessages(target){
   const wrap=document.getElementById('messagesWrap');
   wrap.innerHTML='<div class="loading-msg">Загрузка...</div>';
   dmRenderedIds.clear();lastSenderId=null;lastDate=null;dmLastMsgId=0;
-  // Mark incoming DMs as read
-  try{await fetch(`${SUPABASE_URL}/rest/v1/bundle_dm_reads`,{method:'POST',headers:{...H,'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({user_id:me.id,peer_id:target.id,last_read_id:9999999})});}catch{}
+  // Mark incoming DMs as read - save last read id
+  try{
+    const latest=await dbQ('bundle_dms',{filter:`from_id=eq.${target.id}&to_id=eq.${me.id}`,select:'id',order:'id.desc',limit:1});
+    const lastId=latest&&latest[0]?latest[0].id:0;
+    await fetch(`${SUPABASE_URL}/rest/v1/bundle_dm_reads`,{method:'POST',headers:{...H,'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({user_id:me.id,peer_id:target.id,last_read_id:lastId})});
+  }catch{}
   try{
     // Fetch both directions separately and merge
     const [sent,recv]=await Promise.all([
@@ -1510,7 +1571,7 @@ function renderDMMsg(msg,scroll=false){
   const tm=document.createElement('span');tm.className='msg-time';tm.textContent=fmtTime(msg.created_at);tmWrap.appendChild(tm);
   if(isOwn&&currentMode!=='dm'){
     const ticks=document.createElement('span');ticks.className='msg-ticks';ticks.id='ticks-'+msg.id;
-    const isRead=Array.isArray(msg.read_by)&&msg.read_by.some(id=>id!==me.id);
+    const isRead=(msg.read_count||0)>0;
     ticks.innerHTML=isRead
       ?'<svg viewBox="0 0 18 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 5l3 3 6-6"/><path d="M7 5l3 3 6-6"/></svg>'
       :'<svg viewBox="0 0 12 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 5l3 3 6-6"/></svg>';
@@ -1526,12 +1587,17 @@ function renderDMMsg(msg,scroll=false){
 async function deleteDMChat(uid, e){
   e.stopPropagation();
   const el=document.getElementById('dm-'+uid);
-  const nick=el?el.querySelector('span')?.textContent:'этот чат';
-  if(!await customConfirm('Удалить чат?',`Чат с ${nick} будет удалён у обоих собеседников.`))return;
-  // Delete messages from both sides
+  const nick=el?el.querySelector('div > div')?.textContent||'этот чат':'этот чат';
+  if(!await customConfirm('Удалить чат?',`Переписка с ${nick} будет удалена.`))return;
   try{
-    await fetch(`${SUPABASE_URL}/rest/v1/bundle_dms?or=(and(from_id.eq.${me.id},to_id.eq.${uid}),and(from_id.eq.${uid},to_id.eq.${me.id}))`,{method:'DELETE',headers:H});
-  }catch{}
+    // Delete DM messages
+    await fetch(`${SUPABASE_URL}/rest/v1/bundle_dms?from_id=eq.${me.id}&to_id=eq.${uid}`,{method:'DELETE',headers:H});
+    await fetch(`${SUPABASE_URL}/rest/v1/bundle_dms?from_id=eq.${uid}&to_id=eq.${me.id}`,{method:'DELETE',headers:H});
+    // Remove from saved chats
+    await fetch(`${SUPABASE_URL}/rest/v1/bundle_dm_chats?user_id=eq.${me.id}&peer_id=eq.${uid}`,{method:'DELETE',headers:H});
+    // Remove read record
+    await fetch(`${SUPABASE_URL}/rest/v1/bundle_dm_reads?user_id=eq.${me.id}&peer_id=eq.${uid}`,{method:'DELETE',headers:H});
+  }catch(e){console.error(e);}
   if(el)el.remove();
   if(currentMode==='dm'&&currentDMUser&&currentDMUser.id===uid) switchToGlobal();
   delete dmUnread[uid];
