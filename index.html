@@ -158,6 +158,9 @@
   .bubble{background:var(--msg-other);border:1px solid var(--border);border-radius:14px 14px 14px 4px;padding:9px 13px;font-size:14px;line-height:1.5;color:var(--text);word-break:break-word;user-select:none;-webkit-user-select:none;}
   .msg-group.own .bubble{background:var(--msg-own);border-color:rgba(124,92,252,.3);border-radius:14px 14px 4px 14px;}
   .msg-time{font-size:10px;color:var(--text2);padding:0 4px;}
+  .msg-ticks{display:inline-flex;align-items:center;margin-left:2px;color:var(--text2);}
+  .msg-ticks.read{color:#7c5cfc;}
+  .msg-ticks svg{width:14px;height:10px;}
   .admin-badge{display:inline-flex;align-items:center;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:9px;font-weight:700;letter-spacing:.5px;padding:1px 5px;border-radius:4px;vertical-align:middle;margin-left:4px;text-transform:uppercase;}
 
   /* Image messages */
@@ -231,7 +234,9 @@
   #lightboxImg{max-width:92vw;max-height:88vh;border-radius:12px;}
 
   /* Context menu */
-  #msgMenu{display:none;position:fixed;z-index:400;background:var(--bg2);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.3);overflow:hidden;min-width:158px;}
+  #msgMenu{display:none;position:fixed;z-index:400;background:var(--bg2);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.3);overflow:hidden;min-width:158px;transform-origin:top left;transition:opacity .15s,transform .15s;}
+  #msgMenu.visible{opacity:1;transform:scale(1);}
+  #msgMenu.hiding{opacity:0;transform:scale(.95);}
   .ctx-item{display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:14px;cursor:pointer;transition:background .15s;}
 
   .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:10px 18px;font-size:13px;color:var(--text);box-shadow:0 8px 24px rgba(0,0,0,.3);z-index:999;transition:transform .3s;white-space:nowrap;}
@@ -421,7 +426,7 @@
     <div id="mutedBanner">🔇 Замьючен до <span id="mutedUntilText"></span></div>
 
     <div class="input-area">
-      <div class="reply-preview-bar" id="replyPreviewBar" onclick="event.stopPropagation()">
+      <div class="reply-preview-bar" id="replyPreviewBar">
         <div class="reply-preview-text"><strong id="replyNickLabel"></strong><span id="replyTextLabel"></span></div>
         <button class="reply-cancel" onclick="cancelReply()">✕</button>
       </div>
@@ -515,27 +520,6 @@
 
 <div class="toast" id="toast"></div>
 
-<!-- Re-auth modal для восстановления сессии админа -->
-<div class="modal-bg" id="reAuthModal">
-  <div class="modal" style="gap:14px">
-    <div style="text-align:center">
-      <div style="width:44px;height:44px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 10px">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-      </div>
-      <h3 style="font-family:Syne,sans-serif;font-size:16px;font-weight:700">Подтверди пароль</h3>
-      <p style="color:var(--text2);font-size:12px;margin-top:4px">Для этого действия нужен пароль админа</p>
-    </div>
-    <div class="input-group" style="width:100%;margin:0">
-      <input type="password" id="reAuthInput" placeholder="Пароль" onkeydown="if(event.key==='Enter')confirmReAuth()">
-    </div>
-    <div class="err-msg" id="reAuthErr" style="margin-top:-8px;color:#f87171;font-size:12px;min-height:14px"></div>
-    <div class="modal-btns" style="display:flex;gap:8px;width:100%">
-      <button class="btn-secondary" onclick="cancelReAuth()">Отмена</button>
-      <button class="btn-primary" style="margin-top:0;flex:1;border-radius:10px;padding:10px;font-size:14px" onclick="confirmReAuth()">Подтвердить</button>
-    </div>
-  </div>
-</div>
-
 <!-- CUSTOM CONFIRM MODAL -->
 <div class="dm-modal-bg" id="confirmModal">
   <div class="modal" style="gap:14px">
@@ -586,58 +570,7 @@
   });
 })();
 const SUPABASE_URL = 'https://vjqrfojuxysihxsyuhly.supabase.co';
-const EDGE_URL = 'https://vjqrfojuxysihxsyuhly.supabase.co/functions/v1/bundle-admin';
-
-// Вызов Edge Function — все опасные операции идут через сервер
-async function edgeCall(action, payload) {
-  if (!me) throw new Error('Не авторизован');
-  // Пароль берём из sessionStorage (живёт только в текущей вкладке, не виден в коде)
-  let adminPass = me._adminPass || sessionStorage.getItem('_ap') || '';
-  if (!adminPass && isAdmin(me.nickname)) {
-    adminPass = await promptAdminPass();
-    if (!adminPass) throw new Error('Пароль не введён');
-  }
-  const r = await fetch(EDGE_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY },
-    body: JSON.stringify({ action, pass: adminPass, payload })
-  });
-  const data = await r.json();
-  if (!r.ok || data.error) throw new Error(data.error || 'Ошибка сервера');
-  return data;
-}
-
-function promptAdminPass() {
-  return new Promise(resolve => {
-    document.getElementById('reAuthModal').classList.add('show');
-    document.getElementById('reAuthInput').value = '';
-    document.getElementById('reAuthErr').textContent = '';
-    setTimeout(() => document.getElementById('reAuthInput').focus(), 100);
-    window._reAuthResolve = resolve;
-  });
-}
-async function confirmReAuth() {
-  const pass = document.getElementById('reAuthInput').value;
-  if (!pass) return;
-  // Проверим пароль
-  try {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/check_nick_password`, {
-      method: 'POST', headers: H,
-      body: JSON.stringify({ p_nick: 'neked', p_pass: pass })
-    });
-    const ok = await r.json();
-    if (ok !== true) { document.getElementById('reAuthErr').textContent = 'Неверный пароль'; return; }
-    me._adminPass = pass;
-    sessionStorage.setItem('_ap', pass);
-    document.getElementById('reAuthModal').classList.remove('show');
-    if (window._reAuthResolve) { window._reAuthResolve(pass); window._reAuthResolve = null; }
-  } catch { document.getElementById('reAuthErr').textContent = 'Ошибка'; }
-}
-function cancelReAuth() {
-  document.getElementById('reAuthModal').classList.remove('show');
-  if (window._reAuthResolve) { window._reAuthResolve(''); window._reAuthResolve = null; }
-}
-const SUPABASE_KEY = 'sb_publishable_Ss8vp58JPU65AwQ6k6T_2A_0DR88FsA';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZqcXJmb2p1eHlzaWh4c3l1aGx5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyODYyNjUsImV4cCI6MjA5MDg2MjI2NX0.DvMZa0MyB2MvW1LZsU3rnL6rU3a-87J7PHJS62SAKWQ';
 const STORAGE_BUCKET = 'bundle-images'; // создай bucket с таким именем в Supabase Storage → Public
 
 // EmailJS — зарегистрируйся на emailjs.com (бесплатно 200 писем/мес)
@@ -894,17 +827,24 @@ async function handleReset(){
 
 // ── FINISH LOGIN ──
 async function finishLogin(){
+  // Create server-side session token
+  const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/create_session`,{method:'POST',headers:H,body:JSON.stringify({p_user_id:me.id})});
+  const token=await r.json();
   await dbP('bundle_users',`id=eq.${me.id}`,{last_seen:new Date().toISOString()});
-  me.sessionToken=btoa(me.id+':'+Date.now()+':'+Math.random().toString(36).slice(2));
-  localStorage.setItem('bundle-user',JSON.stringify(me));
+  // Store only token in localStorage - NOT user id or data
+  localStorage.setItem('bundle-session',token);
+  localStorage.removeItem('bundle-user');
   otpCode=null;otpData=null;otpMode=null;
   enterChat();
 }
 
 // ── LOGOUT ──
 function logout(){document.getElementById('logoutModal').classList.add('show');}
-function confirmLogout(){
+async function confirmLogout(){
   document.getElementById('logoutModal').classList.remove('show');
+  const token=localStorage.getItem('bundle-session');
+  if(token){try{await fetch(`${SUPABASE_URL}/rest/v1/rpc/delete_session`,{method:'POST',headers:H,body:JSON.stringify({p_token:token})});}catch{}}
+  localStorage.removeItem('bundle-session');
   localStorage.removeItem('bundle-user');
   me=null;lastSenderId=null;lastDate=null;renderedIds.clear();
   clearInterval(pollTimer);clearInterval(bgDMPoll);clearInterval(dmPollTimer);
@@ -932,6 +872,7 @@ async function enterChat(){
   startBgDMPoll();
   setTimeout(cleanStaleDMs, 1000);
   setInterval(updateOnline,30000);
+  setInterval(()=>{if(document.visibilityState==='visible')markMessagesRead();},5000);
   setInterval(()=>dbP('bundle_users',`id=eq.${me.id}`,{last_seen:new Date().toISOString()}).catch(()=>{}),20000);
   setInterval(checkMute,15000);
 }
@@ -950,6 +891,27 @@ function updateSidebar(){
   }
 }
 const canSend=()=>!isMuted()&&(!!(document.getElementById('msgInput').value.trim())||!!attachFile);
+
+// Ctrl+V paste image
+document.addEventListener('paste',e=>{
+  if(!me)return;
+  const items=e.clipboardData?.items;
+  if(!items)return;
+  for(const item of items){
+    if(item.type.startsWith('image/')){
+      const file=item.getAsFile();
+      if(file){
+        attachFile=file;
+        const r=new FileReader();r.onload=ev=>{
+          document.getElementById('imgPreviewThumb').src=ev.target.result;
+          document.getElementById('imgPreviewBar').classList.add('show');
+          document.getElementById('sendBtn').disabled=!canSend();
+        };r.readAsDataURL(file);
+      }
+      break;
+    }
+  }
+});
 
 // ── IMAGE ATTACH ──
 function handleFileSelect(e){
@@ -981,17 +943,16 @@ function calcMuteDate(){const n=parseInt(document.getElementById('muteDurationNu
 function updateMutePreview(){const d=calcMuteDate();document.getElementById('muteUntilPreview').textContent='до: '+d.toLocaleString('ru-RU',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'});}
 async function confirmMute(){
   if(!muteUid)return;
-  let adminPass=me._adminPass||sessionStorage.getItem('_ap')||'';
-  if(!adminPass){adminPass=await promptAdminPass();if(!adminPass)return;}
   try{
-    const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_mute_user`,{
-      method:'POST',headers:H,
-      body:JSON.stringify({p_user_id:muteUid,p_until:calcMuteDate().toISOString(),p_admin_pass:adminPass})
+    const muteDate=calcMuteDate().toISOString();
+    // Try direct PATCH first, fallback to RPC
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/bundle_users?id=eq.${muteUid}`,{
+      method:'PATCH',headers:{...H,'x-admin-id':me.id},
+      body:JSON.stringify({muted_until:muteDate})
     });
-    const ok=await r.json();
-    if(!ok){showToast('Ошибка: неверный пароль или нельзя замутить');return;}
+    if(!r.ok)throw new Error(await r.text());
     showToast(`${muteNick} замьючен ✅`);closeMuteModal();hideMsgMenu();
-  }catch(e){showToast('Ошибка: '+e.message);}
+  }catch(e){console.error(e);showToast('Ошибка: '+e.message);}
 }
 
 // ── AVATAR MODAL ──
@@ -1006,44 +967,33 @@ function toggleAdminMenu(){document.getElementById('adminActionsMenu').classList
 async function adminResetAvatars(){
   document.getElementById('adminActionsMenu').classList.remove('open');
   if(!await customConfirm('Сбросить аватары?','Аватары всех пользователей будут удалены.'))return;
-  let adminPass=me._adminPass||sessionStorage.getItem('_ap')||'';
-  if(!adminPass){adminPass=await promptAdminPass();if(!adminPass)return;}
   try{
-    const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_reset_avatars`,{method:'POST',headers:H,body:JSON.stringify({p_admin_pass:adminPass})});
-    const ok=await r.json();
-    if(!ok){showToast('Неверный пароль');return;}
+    await fetch(`${SUPABASE_URL}/rest/v1/rpc/reset_all_avatars`,{method:'POST',headers:H,body:'{}'});
     showToast('Аватары сброшены ✅');
-  }catch(e){showToast('Ошибка: '+e.message);}
+  }catch{showToast('Ошибка');}
 }
 async function adminDeleteAllUsers(){
   document.getElementById('adminActionsMenu').classList.remove('open');
   if(!await customConfirm('Удалить всех?','Все аккаунты кроме твоего будут удалены. Это необратимо!'))return;
-  let adminPass=me._adminPass||sessionStorage.getItem('_ap')||'';
-  if(!adminPass){adminPass=await promptAdminPass();if(!adminPass)return;}
   try{
-    const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_delete_all_users`,{method:'POST',headers:H,body:JSON.stringify({p_admin_pass:adminPass,p_keep_id:me.id})});
-    const ok=await r.json();
-    if(!ok){showToast('Неверный пароль');return;}
+    await fetch(`${SUPABASE_URL}/rest/v1/rpc/delete_all_users`,{method:'POST',headers:H,body:'{}'});
+    // Clear all DM chats from sidebar
     document.getElementById('dmList').innerHTML='';
     dmUnread={};
     if(currentMode==='dm'){switchToGlobal();}
     showToast('Все пользователи удалены ✅');
-  }catch(e){showToast('Ошибка: '+e.message);}
+  }catch{showToast('Ошибка');}
 }
 function adminClearChat(){document.getElementById('adminActionsMenu').classList.remove('open');document.getElementById('clearChatModal').classList.add('show');}
 async function confirmClearChat(){
   document.getElementById('clearChatModal').classList.remove('show');
-  let adminPass=me._adminPass||sessionStorage.getItem('_ap')||'';
-  if(!adminPass){adminPass=await promptAdminPass();if(!adminPass)return;}
-  document.getElementById('messagesWrap').innerHTML='<div class="sys-msg">Чат очищен</div>';
-  renderedIds.clear();lastSenderId=null;lastDate=null;lastMsgId=0;
   try{
-    const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_clear_chat`,{
-      method:'POST',headers:H,
-      body:JSON.stringify({p_admin_pass:adminPass})
-    });
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/bundle_messages?id=gt.0`,{method:'DELETE',headers:H});
+    if(!r.ok)throw new Error(await r.text());
+    document.getElementById('messagesWrap').innerHTML='<div class="sys-msg">Чат очищен</div>';
+    renderedIds.clear();lastSenderId=null;lastDate=null;lastMsgId=0;
     showToast('Чат очищен ✅');
-  }catch(e){showToast('Ошибка: '+e.message);}
+  }catch(e){showToast('Ошибка: '+e.message);console.error(e);}
 }
 
 // ── MESSAGES ──
@@ -1093,7 +1043,9 @@ function renderMsg(msg,scroll){
   if(msg.user_avatar)av.innerHTML=`<img src="${msg.user_avatar}">`;
   else{av.textContent=(msg.user_nickname||'?')[0].toUpperCase();av.style.color='#fff';}
   // Only show avatar on last message in a group (when next msg is different sender)
-  if(isOwn)av.style.visibility='hidden';
+  // Show avatar only on last msg of a group (first time sender appears)
+  if(isOwn){av.style.visibility='hidden';}
+  else if(msg.user_id===lastSenderId&&showSender===false){av.style.visibility='hidden';}
 
   const cont=document.createElement('div');cont.className='msg-content';
 
@@ -1124,7 +1076,18 @@ function renderMsg(msg,scroll){
     cont.appendChild(bbl);
   }
 
-  const tm=document.createElement('div');tm.className='msg-time';tm.textContent=fmtTime(msg.created_at);cont.appendChild(tm);
+  const tmWrap=document.createElement('div');tmWrap.style.cssText='display:flex;align-items:center;gap:1px;';
+  const tm=document.createElement('span');tm.className='msg-time';tm.textContent=fmtTime(msg.created_at);tmWrap.appendChild(tm);
+  if(isOwn&&currentMode!=='dm'){
+    const ticks=document.createElement('span');ticks.className='msg-ticks';ticks.id='ticks-'+msg.id;
+    const isRead=Array.isArray(msg.read_by)&&msg.read_by.some(id=>id!==me.id);
+    ticks.innerHTML=isRead
+      ?'<svg viewBox="0 0 18 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 5l3 3 6-6"/><path d="M7 5l3 3 6-6"/></svg>'
+      :'<svg viewBox="0 0 12 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 5l3 3 6-6"/></svg>';
+    if(isRead)ticks.classList.add('read');
+    tmWrap.appendChild(ticks);
+  }
+  cont.appendChild(tmWrap);
   if(!isOwn)grp.appendChild(av);grp.appendChild(cont);if(isOwn)grp.appendChild(av);
   wrap.appendChild(grp);
   if(scroll){const atBot=wrap.scrollHeight-wrap.scrollTop-wrap.clientHeight<120;if(atBot||isOwn)wrap.scrollTop=wrap.scrollHeight;}
@@ -1135,32 +1098,36 @@ async function showCtxMenu(e,msg){
   ctxMsg=msg;
   const menu=document.getElementById('msgMenu');
   const amAdm=isAdmin(me?.nickname||'');
-  const own=msg.user_id===me?.id;
+  const own=msg.user_id===me?.id||msg.from_id===me?.id;
   const tgAdm=isAdmin(msg.user_nickname||'');
   const isDM=currentMode==='dm';
-  document.getElementById('ctxDelBtn').style.display=(own||amAdm)?'flex':'none';
-  // Check if target user is currently muted
+  document.getElementById('ctxDelBtn').style.display=(own||(amAdm&&!isDM))?'flex':'none';
   let targetMuted=false;
-  if(amAdm&&!own&&!tgAdm){
+  if(amAdm&&!own&&!tgAdm&&!isDM){
     try{const u=await dbQ('bundle_users',{filter:`id=eq.${msg.user_id}`,select:'muted_until'});
       targetMuted=u&&u[0]&&u[0].muted_until&&new Date(u[0].muted_until)>new Date();}catch{}
   }
-  document.getElementById('ctxMuteBtn').style.display=(amAdm&&!own&&!tgAdm&&!targetMuted)?'flex':'none';
-  document.getElementById('ctxUnmuteBtn').style.display=(amAdm&&!own&&!tgAdm&&targetMuted)?'flex':'none';
+  document.getElementById('ctxMuteBtn').style.display=(amAdm&&!own&&!tgAdm&&!targetMuted&&!isDM)?'flex':'none';
+  document.getElementById('ctxUnmuteBtn').style.display=(amAdm&&!own&&!tgAdm&&targetMuted&&!isDM)?'flex':'none';
   menu.style.display='block';
-  const mh=44+((own||amAdm)?44:0)+((amAdm&&!own&&!tgAdm)?44:0);
+  menu.style.opacity='0';menu.style.transform='scale(0.95)';
+  requestAnimationFrame(()=>{menu.style.opacity='1';menu.style.transform='scale(1)';});
+  const mh=80+((own||(amAdm&&!isDM))?44:0)+(amAdm&&!own&&!tgAdm&&!isDM?44:0);
   menu.style.left=Math.min(e.clientX,innerWidth-170)+'px';
   menu.style.top=Math.min(e.clientY,innerHeight-mh-8)+'px';
 }
-function hideMsgMenu(){document.getElementById('msgMenu').style.display='none';ctxMsg=null;}
+function hideMsgMenu(){
+  const menu=document.getElementById('msgMenu');
+  menu.style.opacity='0';menu.style.transform='scale(0.95)';
+  setTimeout(()=>{menu.style.display='none';menu.style.opacity='';menu.style.transform='';},150);
+  ctxMsg=null;
+}
 function ctxCopy(){if(!ctxMsg)return;navigator.clipboard.writeText(ctxMsg.content||ctxMsg.image_url||'').then(()=>showToast('Скопировано'));hideMsgMenu();}
 function ctxReply(){
-  if(!ctxMsg)return;
-  const saved=ctxMsg; // сохраняем до hideMsgMenu который обнуляет ctxMsg
-  hideMsgMenu();
-  replyTo=saved;
-  document.getElementById('replyNickLabel').textContent=saved.user_nickname||'';
-  document.getElementById('replyTextLabel').textContent=saved.content||'📷 Фото';
+  if(!ctxMsg)return;hideMsgMenu();
+  replyTo=ctxMsg;
+  document.getElementById('replyNickLabel').textContent=ctxMsg.user_nickname||'';
+  document.getElementById('replyTextLabel').textContent=ctxMsg.content||'📷 Фото';
   document.getElementById('replyPreviewBar').classList.add('show');
   document.getElementById('msgInput').focus();
 }
@@ -1169,36 +1136,29 @@ function cancelReply(){
   document.getElementById('replyPreviewBar').classList.remove('show');
 }
 async function ctxDelete(){
-  if(!ctxMsg)return;
-  const id=ctxMsg.id;
-  const el=document.querySelector(`[data-msg-id="${id}"]`);if(el)el.remove();renderedIds.delete(String(id));
-  hideMsgMenu();
+  if(!ctxMsg)return;const id=ctxMsg.id;hideMsgMenu();
+  const el=document.querySelector(`[data-msg-id="${id}"]`);
+  if(el)el.style.opacity='0.4';
+  renderedIds.delete(String(id));
   try{
-    if(isAdmin(me?.nickname)){
-      let adminPass=me._adminPass||sessionStorage.getItem('_ap')||'';
-      if(!adminPass){adminPass=await promptAdminPass();if(!adminPass)return;}
-      await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_delete_message`,{
-        method:'POST',headers:H,
-        body:JSON.stringify({p_msg_id:id,p_admin_pass:adminPass})
-      });
-    } else {
-      await dbD('bundle_messages',`id=eq.${id}`);
-    }
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/bundle_messages?id=eq.${id}`,{method:'DELETE',headers:H});
+    if(!r.ok)throw new Error(await r.text());
+    if(el)el.remove();
     showToast('Удалено');
-  }catch(e){showToast('Ошибка: '+e.message);}
+  }catch(e){
+    if(el){el.style.opacity='1';renderedIds.add(String(id));}
+    showToast('Ошибка удаления');
+    console.error(e);
+  }
 }
 function ctxMute(){if(!ctxMsg)return;const uid=ctxMsg.user_id,nick=ctxMsg.user_nickname;hideMsgMenu();openMuteModal(uid,nick);}
 async function ctxUnmute(){
-  if(!ctxMsg)return;
-  const uid=ctxMsg.user_id,nick=ctxMsg.user_nickname;
-  const saved=ctxMsg;hideMsgMenu();
-  let adminPass=me._adminPass||sessionStorage.getItem('_ap')||'';
-  if(!adminPass){adminPass=await promptAdminPass();if(!adminPass)return;}
+  if(!ctxMsg)return;const uid=ctxMsg.user_id,nick=ctxMsg.user_nickname;hideMsgMenu();
   try{
-    const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_mute_user`,{
-      method:'POST',headers:H,
-      body:JSON.stringify({p_user_id:uid,p_until:null,p_admin_pass:adminPass})
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/bundle_users?id=eq.${uid}`,{
+      method:'PATCH',headers:{...H},body:JSON.stringify({muted_until:null})
     });
+    if(!r.ok)throw new Error(await r.text());
     showToast(`${nick} размучен ✅`);
   }catch(e){showToast('Ошибка: '+e.message);}
 }
@@ -1256,38 +1216,36 @@ async function updateOnline(){
 
 // ── AUTO LOGIN ──
 (async()=>{
-  const saved=localStorage.getItem('bundle-user');
-  if(saved){
+  const token=localStorage.getItem('bundle-session');
+  // Remove old localStorage user data if exists
+  localStorage.removeItem('bundle-user');
+  if(token){
     try{
-      const local=JSON.parse(saved);
-      const fresh=await dbQ('bundle_users',{filter:`id=eq.${local.id}`,select:'id,nickname,username,avatar,muted_until,email,password_hash'});
-      if(fresh&&fresh.length>0){
-        // Выпинуть старых юзеров без пароля (кроме Neked)
-        if(!fresh[0].password_hash&&!isAdmin(fresh[0].nickname)&&!isAdminUser(fresh[0].username)){
-          localStorage.removeItem('bundle-user');
+      const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/verify_session`,{method:'POST',headers:H,body:JSON.stringify({p_token:token})});
+      const rows=await r.json();
+      if(rows&&rows.length>0){
+        const u=rows[0];
+        // Validate - must have password_hash or be admin
+        if(!u.password_hash&&!isAdmin(u.nickname)&&!isAdminUser(u.username)){
+          localStorage.removeItem('bundle-session');
           document.body.classList.remove('checking');
           document.getElementById('authScreen').classList.add('active');
-          showToast('Обновление: пожалуйста, зарегистрируйся заново',6000);
           return;
         }
-        // Verify stored session matches - basic replay protection
-        if(local.sessionToken!==undefined&&!fresh[0].password_hash&&!isAdmin(fresh[0].nickname)){localStorage.removeItem('bundle-user');document.body.classList.remove('checking');document.getElementById('authScreen').classList.add('active');return;}
-        me={...fresh[0],sessionToken:local.sessionToken||btoa(local.id+':'+Date.now())};
-        if(isAdmin(me.nickname)) {
-          const ap = sessionStorage.getItem('_ap');
-          if(ap) me._adminPass = ap;
-        }
-        localStorage.setItem('bundle-user',JSON.stringify(me));
+        me={id:u.user_id||rows[0].user_id,nickname:u.nickname,username:u.username,avatar:u.avatar,muted_until:u.muted_until,password_hash:u.password_hash,sessionToken:token};
+        // Fix: verify_session returns user_id field
+        if(!me.id){me.id=u.user_id;}
         await dbP('bundle_users',`id=eq.${me.id}`,{last_seen:new Date().toISOString()});
         document.body.classList.remove('checking');
         enterChat();
       } else {
-        localStorage.removeItem('bundle-user');
+        localStorage.removeItem('bundle-session');
         document.body.classList.remove('checking');
         document.getElementById('authScreen').classList.add('active');
       }
     }catch(e){
-      console.error(e);localStorage.removeItem('bundle-user');
+      console.error(e);
+      localStorage.removeItem('bundle-session');
       document.body.classList.remove('checking');
       document.getElementById('authScreen').classList.add('active');
     }
@@ -1309,6 +1267,39 @@ function customConfirm(title, text){
     ok.onclick=()=>{cleanup();resolve(true);};
     cancel.onclick=()=>{cleanup();resolve(false);};
   });
+}
+
+// ── READ RECEIPTS ──
+async function markMessagesRead(){
+  if(!me||currentMode!=='global')return;
+  try{
+    // Get unread messages not sent by me without my id in read_by
+    const msgs=await dbQ('bundle_messages',{filter:`user_id=neq.${me.id}`,select:'id,read_by',order:'id.desc',limit:50});
+    if(!msgs||!msgs.length)return;
+    const unread=msgs.filter(m=>!m.read_by||!m.read_by.includes(me.id));
+    for(const m of unread){
+      const newReadBy=[...(m.read_by||[]),me.id];
+      await dbP('bundle_messages',`id=eq.${m.id}`,{read_by:newReadBy});
+    }
+    // Update checkmarks for own messages visible on screen
+    updateVisibleCheckmarks();
+  }catch{}
+}
+
+async function updateVisibleCheckmarks(){
+  try{
+    const myMsgs=await dbQ('bundle_messages',{filter:`user_id=eq.${me.id}`,select:'id,read_by',order:'id.desc',limit:50});
+    if(!myMsgs)return;
+    myMsgs.forEach(m=>{
+      const el=document.getElementById('ticks-'+m.id);
+      if(!el)return;
+      const isRead=Array.isArray(m.read_by)&&m.read_by.some(id=>id!==me.id);
+      el.innerHTML=isRead
+        ?'<svg viewBox="0 0 18 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 5l3 3 6-6"/><path d="M7 5l3 3 6-6"/></svg>'
+        :'<svg viewBox="0 0 12 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 5l3 3 6-6"/></svg>';
+      el.className=isRead?'msg-ticks read':'msg-ticks';
+    });
+  }catch{}
 }
 
 // ── DM STATE ──
@@ -1398,6 +1389,7 @@ async function startDM(){
   try{
     const users=await dbQ('bundle_users',{filter:`username=ilike.${encodeURIComponent(uname)}`,select:'id,nickname,username,avatar'});
     if(!users||users.length===0){err.textContent='Пользователь не найден';btn.disabled=false;btn.textContent='Открыть чат';return;}
+    if(!users[0].username){err.textContent='У этого пользователя нет @username';btn.disabled=false;btn.textContent='Открыть чат';return;}
     const target=users[0];
     closeNewDM();
     openDMChat(target);
@@ -1441,6 +1433,8 @@ async function loadDMMessages(target){
   const wrap=document.getElementById('messagesWrap');
   wrap.innerHTML='<div class="loading-msg">Загрузка...</div>';
   dmRenderedIds.clear();lastSenderId=null;lastDate=null;dmLastMsgId=0;
+  // Mark incoming DMs as read
+  try{await fetch(`${SUPABASE_URL}/rest/v1/bundle_dm_reads`,{method:'POST',headers:{...H,'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({user_id:me.id,peer_id:target.id,last_read_id:9999999})});}catch{}
   try{
     // Fetch both directions separately and merge
     const [sent,recv]=await Promise.all([
@@ -1481,10 +1475,14 @@ function renderDMMsg(msg,scroll=false){
   if(ds!==lastDate){const d=document.createElement('div');d.className='date-divider';d.textContent=ds;wrap.appendChild(d);lastDate=ds;lastSenderId=null;}
   const showSnd=!isOwn&&uid!==lastSenderId;lastSenderId=uid;
   const grp=document.createElement('div');grp.className='msg-group'+(isOwn?' own':'');
+  grp.dataset.msgId=msg.id;
+  grp.addEventListener('click',e=>{e.stopPropagation();showCtxMenu(e,{id:msg.id,content:msg.content,from_id:msg.from_id,user_id:msg.from_id,user_nickname:nick,image_url:msg.image_url||null});});
   const av=document.createElement('div');av.className='msg-avatar av-grad-'+gradIdx;av.style.color='#fff';
   if(avatar)av.innerHTML=`<img src="${avatar}" style="width:28px;height:28px;border-radius:50%;object-fit:cover">`;
   else av.textContent=(nick||'?')[0].toUpperCase();
-  if(isOwn)av.style.visibility='hidden';
+  // Show avatar only on last msg of a group (first time sender appears)
+  if(isOwn){av.style.visibility='hidden';}
+  else if(msg.user_id===lastSenderId&&showSender===false){av.style.visibility='hidden';}
   const cont=document.createElement('div');cont.className='msg-content';
   if(showSnd){const s=document.createElement('div');s.className='msg-sender';s.textContent=nick;cont.appendChild(s);}
   if(msg.image_url){
@@ -1508,19 +1506,34 @@ function renderDMMsg(msg,scroll=false){
     if(msg.content){const t=document.createElement('span');t.textContent=msg.content;bbl.appendChild(t);}
     cont.appendChild(bbl);
   }
-  const tm=document.createElement('div');tm.className='msg-time';tm.textContent=fmtTime(msg.created_at);cont.appendChild(tm);
+  const tmWrap=document.createElement('div');tmWrap.style.cssText='display:flex;align-items:center;gap:1px;';
+  const tm=document.createElement('span');tm.className='msg-time';tm.textContent=fmtTime(msg.created_at);tmWrap.appendChild(tm);
+  if(isOwn&&currentMode!=='dm'){
+    const ticks=document.createElement('span');ticks.className='msg-ticks';ticks.id='ticks-'+msg.id;
+    const isRead=Array.isArray(msg.read_by)&&msg.read_by.some(id=>id!==me.id);
+    ticks.innerHTML=isRead
+      ?'<svg viewBox="0 0 18 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 5l3 3 6-6"/><path d="M7 5l3 3 6-6"/></svg>'
+      :'<svg viewBox="0 0 12 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 5l3 3 6-6"/></svg>';
+    if(isRead)ticks.classList.add('read');
+    tmWrap.appendChild(ticks);
+  }
+  cont.appendChild(tmWrap);
   if(!isOwn)grp.appendChild(av);grp.appendChild(cont);if(isOwn)grp.appendChild(av);
   wrap.appendChild(grp);
   if(scroll){const atBot=wrap.scrollHeight-wrap.scrollTop-wrap.clientHeight<120;if(atBot||isOwn)wrap.scrollTop=wrap.scrollHeight;}
 }
 
-function deleteDMChat(uid, e){
+async function deleteDMChat(uid, e){
   e.stopPropagation();
   const el=document.getElementById('dm-'+uid);
+  const nick=el?el.querySelector('span')?.textContent:'этот чат';
+  if(!await customConfirm('Удалить чат?',`Чат с ${nick} будет удалён у обоих собеседников.`))return;
+  // Delete messages from both sides
+  try{
+    await fetch(`${SUPABASE_URL}/rest/v1/bundle_dms?or=(and(from_id.eq.${me.id},to_id.eq.${uid}),and(from_id.eq.${uid},to_id.eq.${me.id}))`,{method:'DELETE',headers:H});
+  }catch{}
   if(el)el.remove();
-  if(currentMode==='dm'&&currentDMUser&&currentDMUser.id===uid){
-    switchToGlobal();
-  }
+  if(currentMode==='dm'&&currentDMUser&&currentDMUser.id===uid) switchToGlobal();
   delete dmUnread[uid];
 }
 function switchToGlobal(){
