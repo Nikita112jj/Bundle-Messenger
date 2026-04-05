@@ -1006,22 +1006,29 @@ function toggleAdminMenu(){document.getElementById('adminActionsMenu').classList
 async function adminResetAvatars(){
   document.getElementById('adminActionsMenu').classList.remove('open');
   if(!await customConfirm('Сбросить аватары?','Аватары всех пользователей будут удалены.'))return;
+  let adminPass=me._adminPass||sessionStorage.getItem('_ap')||'';
+  if(!adminPass){adminPass=await promptAdminPass();if(!adminPass)return;}
   try{
-    await edgeCall('reset_avatars',{});
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_reset_avatars`,{method:'POST',headers:H,body:JSON.stringify({p_admin_pass:adminPass})});
+    const ok=await r.json();
+    if(!ok){showToast('Неверный пароль');return;}
     showToast('Аватары сброшены ✅');
   }catch(e){showToast('Ошибка: '+e.message);}
 }
 async function adminDeleteAllUsers(){
   document.getElementById('adminActionsMenu').classList.remove('open');
   if(!await customConfirm('Удалить всех?','Все аккаунты кроме твоего будут удалены. Это необратимо!'))return;
+  let adminPass=me._adminPass||sessionStorage.getItem('_ap')||'';
+  if(!adminPass){adminPass=await promptAdminPass();if(!adminPass)return;}
   try{
-    await edgeCall('delete_all_users',{});
-    // Clear all DM chats from sidebar
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_delete_all_users`,{method:'POST',headers:H,body:JSON.stringify({p_admin_pass:adminPass,p_keep_id:me.id})});
+    const ok=await r.json();
+    if(!ok){showToast('Неверный пароль');return;}
     document.getElementById('dmList').innerHTML='';
     dmUnread={};
     if(currentMode==='dm'){switchToGlobal();}
     showToast('Все пользователи удалены ✅');
-  }catch{showToast('Ошибка');}
+  }catch(e){showToast('Ошибка: '+e.message);}
 }
 function adminClearChat(){document.getElementById('adminActionsMenu').classList.remove('open');document.getElementById('clearChatModal').classList.add('show');}
 async function confirmClearChat(){
