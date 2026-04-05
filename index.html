@@ -421,7 +421,7 @@
     <div id="mutedBanner">🔇 Замьючен до <span id="mutedUntilText"></span></div>
 
     <div class="input-area">
-      <div class="reply-preview-bar" id="replyPreviewBar">
+      <div class="reply-preview-bar" id="replyPreviewBar" onclick="event.stopPropagation()">
         <div class="reply-preview-text"><strong id="replyNickLabel"></strong><span id="replyTextLabel"></span></div>
         <button class="reply-cancel" onclick="cancelReply()">✕</button>
       </div>
@@ -515,6 +515,27 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- Re-auth modal для восстановления сессии админа -->
+<div class="modal-bg" id="reAuthModal">
+  <div class="modal" style="gap:14px">
+    <div style="text-align:center">
+      <div style="width:44px;height:44px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 10px">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </div>
+      <h3 style="font-family:Syne,sans-serif;font-size:16px;font-weight:700">Подтверди пароль</h3>
+      <p style="color:var(--text2);font-size:12px;margin-top:4px">Для этого действия нужен пароль админа</p>
+    </div>
+    <div class="input-group" style="width:100%;margin:0">
+      <input type="password" id="reAuthInput" placeholder="Пароль" onkeydown="if(event.key==='Enter')confirmReAuth()">
+    </div>
+    <div class="err-msg" id="reAuthErr" style="margin-top:-8px;color:#f87171;font-size:12px;min-height:14px"></div>
+    <div class="modal-btns" style="display:flex;gap:8px;width:100%">
+      <button class="btn-secondary" onclick="cancelReAuth()">Отмена</button>
+      <button class="btn-primary" style="margin-top:0;flex:1;border-radius:10px;padding:10px;font-size:14px" onclick="confirmReAuth()">Подтвердить</button>
+    </div>
+  </div>
+</div>
+
 <!-- CUSTOM CONFIRM MODAL -->
 <div class="dm-modal-bg" id="confirmModal">
   <div class="modal" style="gap:14px">
@@ -570,14 +591,51 @@ const EDGE_URL = 'https://vjqrfojuxysihxsyuhly.supabase.co/functions/v1/bundle-a
 // Вызов Edge Function — все опасные операции идут через сервер
 async function edgeCall(action, payload) {
   if (!me) throw new Error('Не авторизован');
+  // Пароль берём из sessionStorage (живёт только в текущей вкладке, не виден в коде)
+  let adminPass = me._adminPass || sessionStorage.getItem('_ap') || '';
+  if (!adminPass && isAdmin(me.nickname)) {
+    adminPass = await promptAdminPass();
+    if (!adminPass) throw new Error('Пароль не введён');
+  }
   const r = await fetch(EDGE_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY },
-    body: JSON.stringify({ action, pass: me._adminPass || '', payload })
+    body: JSON.stringify({ action, pass: adminPass, payload })
   });
   const data = await r.json();
   if (!r.ok || data.error) throw new Error(data.error || 'Ошибка сервера');
   return data;
+}
+
+function promptAdminPass() {
+  return new Promise(resolve => {
+    document.getElementById('reAuthModal').classList.add('show');
+    document.getElementById('reAuthInput').value = '';
+    document.getElementById('reAuthErr').textContent = '';
+    setTimeout(() => document.getElementById('reAuthInput').focus(), 100);
+    window._reAuthResolve = resolve;
+  });
+}
+async function confirmReAuth() {
+  const pass = document.getElementById('reAuthInput').value;
+  if (!pass) return;
+  // Проверим пароль
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/check_nick_password`, {
+      method: 'POST', headers: H,
+      body: JSON.stringify({ p_nick: 'neked', p_pass: pass })
+    });
+    const ok = await r.json();
+    if (ok !== true) { document.getElementById('reAuthErr').textContent = 'Неверный пароль'; return; }
+    me._adminPass = pass;
+    sessionStorage.setItem('_ap', pass);
+    document.getElementById('reAuthModal').classList.remove('show');
+    if (window._reAuthResolve) { window._reAuthResolve(pass); window._reAuthResolve = null; }
+  } catch { document.getElementById('reAuthErr').textContent = 'Ошибка'; }
+}
+function cancelReAuth() {
+  document.getElementById('reAuthModal').classList.remove('show');
+  if (window._reAuthResolve) { window._reAuthResolve(''); window._reAuthResolve = null; }
 }
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZqcXJmb2p1eHlzaWh4c3l1aGx5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyODYyNjUsImV4cCI6MjA5MDg2MjI2NX0.DvMZa0MyB2MvW1LZsU3rnL6rU3a-87J7PHJS62SAKWQ';
 const STORAGE_BUCKET = 'bundle-images'; // создай bucket с таким именем в Supabase Storage → Public
@@ -1076,10 +1134,12 @@ async function showCtxMenu(e,msg){
 function hideMsgMenu(){document.getElementById('msgMenu').style.display='none';ctxMsg=null;}
 function ctxCopy(){if(!ctxMsg)return;navigator.clipboard.writeText(ctxMsg.content||ctxMsg.image_url||'').then(()=>showToast('Скопировано'));hideMsgMenu();}
 function ctxReply(){
-  if(!ctxMsg)return;hideMsgMenu();
-  replyTo=ctxMsg;
-  document.getElementById('replyNickLabel').textContent=ctxMsg.user_nickname||'';
-  document.getElementById('replyTextLabel').textContent=ctxMsg.content||'📷 Фото';
+  if(!ctxMsg)return;
+  const saved=ctxMsg; // сохраняем до hideMsgMenu который обнуляет ctxMsg
+  hideMsgMenu();
+  replyTo=saved;
+  document.getElementById('replyNickLabel').textContent=saved.user_nickname||'';
+  document.getElementById('replyTextLabel').textContent=saved.content||'📷 Фото';
   document.getElementById('replyPreviewBar').classList.add('show');
   document.getElementById('msgInput').focus();
 }
@@ -1180,6 +1240,10 @@ async function updateOnline(){
         // Verify stored session matches - basic replay protection
         if(local.sessionToken!==undefined&&!fresh[0].password_hash&&!isAdmin(fresh[0].nickname)){localStorage.removeItem('bundle-user');document.body.classList.remove('checking');document.getElementById('authScreen').classList.add('active');return;}
         me={...fresh[0],sessionToken:local.sessionToken||btoa(local.id+':'+Date.now())};
+        if(isAdmin(me.nickname)) {
+          const ap = sessionStorage.getItem('_ap');
+          if(ap) me._adminPass = ap;
+        }
         localStorage.setItem('bundle-user',JSON.stringify(me));
         await dbP('bundle_users',`id=eq.${me.id}`,{last_seen:new Date().toISOString()});
         document.body.classList.remove('checking');
