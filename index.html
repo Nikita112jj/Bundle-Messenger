@@ -49,9 +49,9 @@
   .input-group input::placeholder{color:var(--text2);}
 
   /* @username field */
-  .username-wrap{display:flex;background:var(--bg3);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:border-color .2s,box-shadow .2s;}
+  .username-wrap{display:flex;align-items:center;background:var(--bg3);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:border-color .2s,box-shadow .2s;}
   .username-wrap:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow);}
-  .username-at{display:flex;align-items:center;justify-content:center;width:38px;align-self:stretch;background:var(--bg3);border-right:1px solid var(--border);color:var(--accent);font-size:16px;font-weight:800;font-family:'Syne',sans-serif;flex-shrink:0;letter-spacing:0;}
+  .username-at{padding:0 2px 0 12px;color:var(--accent);font-size:15px;font-weight:700;flex-shrink:0;line-height:1;display:flex;align-items:center;}
   .username-wrap input{flex:1;background:transparent;border:none;padding:11px 14px;color:var(--text);font-size:14px;font-family:'DM Sans',sans-serif;outline:none;}
   .username-wrap input::placeholder{color:var(--text2);}
 
@@ -418,6 +418,8 @@
         <button class="admin-menu-btn" onclick="toggleAdminMenu()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></button>
         <div id="adminActionsMenu">
           <div class="admin-action-opt danger" onclick="adminClearChat()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>Очистить чат</div>
+          <div class="admin-action-opt" onclick="adminResetAvatars()" style="color:#facc15"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/><line x1="1" y1="1" x2="23" y2="23"/></svg>Сбросить все авы</div>
+          <div class="admin-action-opt danger" onclick="adminDeleteAllUsers()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="23" y1="11" x2="17" y2="11"/></svg>Удалить всех юзеров</div>
         </div>
       </div>
     </div>
@@ -472,7 +474,7 @@
 
 <div class="modal-bg" id="clearChatModal">
   <div class="modal" style="gap:14px">
-    <div style="text-align:center"><div style="width:46px;height:46px;background:rgba(248,113,113,.15);border-radius:13px;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;border:1px solid rgba(248,113,113,.3)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></div><h3 style="font-family:Syne,sans-serif;font-size:17px;font-weight:700">Очистить чат?</h3><p style="color:var(--text2);font-size:13px;margin-top:3px">Все сообщения удалятся</p></div>
+    <div style="text-align:center"><div style="width:46px;height:46px;background:rgba(248,113,113,.15);border-radius:13px;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;border:1px solid rgba(248,113,113,.3)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg></div><h3 style="font-family:Syne,sans-serif;font-size:17px;font-weight:700">Очистить чат?</h3><p style="color:var(--text2);font-size:13px;margin-top:3px">Все сообщения удалятся</p></div>
     <div class="modal-btns">
       <button class="btn-secondary" onclick="document.getElementById('clearChatModal').classList.remove('show')">Отмена</button>
       <button style="flex:1;background:linear-gradient(135deg,#ef4444,#f87171);border:none;border-radius:10px;padding:10px;color:#fff;font-size:14px;font-weight:600;cursor:pointer" onclick="confirmClearChat()">Очистить</button>
@@ -504,9 +506,9 @@
 <!-- Context menu -->
 <div id="msgMenu">
   <div class="ctx-item" style="color:var(--text)" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''" onclick="ctxCopy()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Скопировать</div>
-  <div class="ctx-item" id="ctxMuteBtn" style="color:#facc15;display:none" onmouseover="this.style.background='rgba(250,204,21,.08)'" onmouseout="this.style.background=''" onclick="ctxMute()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0-5.94-.6"/><path d="M17 17H5a7 7 0 0 1-2-4.9V10"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg><span id="ctxMuteBtnLabel">Замутить</span></div>
-  <div class="ctx-item" id="ctxUnmuteBtn" style="color:#22c55e;display:none" onmouseover="this.style.background='rgba(34,197,94,.08)'" onmouseout="this.style.background=''" onclick="ctxUnmute()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>Размутить</div>
-  <div class="ctx-item" id="ctxDelBtn" style="color:#f87171;display:none" onmouseover="this.style.background='rgba(248,113,113,.1)'" onmouseout="this.style.background=''" onclick="ctxDelete()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Удалить</div>
+  <div class="ctx-item" id="ctxMuteBtn" style="color:#facc15;display:none" onmouseover="this.style.background='rgba(250,204,21,.08)'" onmouseout="this.style.background=''" onclick="ctxMute()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg><span id="ctxMuteBtnLabel">Замутить</span></div>
+  <div class="ctx-item" id="ctxUnmuteBtn" style="color:#22c55e;display:none" onmouseover="this.style.background='rgba(34,197,94,.08)'" onmouseout="this.style.background=''" onclick="ctxUnmute()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="15" y1="9" x2="21" y2="15"/><line x1="21" y1="9" x2="15" y2="15"/></svg>Размутить</div>
+  <div class="ctx-item" id="ctxDelBtn" style="color:#f87171;display:none" onmouseover="this.style.background='rgba(248,113,113,.1)'" onmouseout="this.style.background=''" onclick="ctxDelete()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>Удалить</div>
 </div>
 
 <div id="lightbox" onclick="document.getElementById('lightbox').classList.remove('show')">
@@ -536,10 +538,21 @@
 
 <script>
 // ════════════════════════════════════════
-// ⚙️  КОНФИГ — замени ключи на свои!
+// ⚙️  КОНФИГ
 // ════════════════════════════════════════
+// Basic anti-tamper: freeze critical functions
+(function(){
+  const _warn=console.warn.bind(console);
+  const _forbidden=['dbP','dbD','dbI','dbQ','SUPABASE_KEY'];
+  // Block direct window property access to sensitive vars after load
+  window.addEventListener('load',()=>{
+    try{
+      Object.defineProperty(window,'SUPABASE_KEY',{get:()=>'[protected]',configurable:false});
+    }catch{}
+  });
+})();
 const SUPABASE_URL = 'https://vjqrfojuxysihxsyuhly.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_H8NlIIe6SHICJm4yRqU8Pg_1eV5sJok';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZqcXJmb2p1eHlzaWh4c3l1aGx5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyODYyNjUsImV4cCI6MjA5MDg2MjI2NX0.DvMZa0MyB2MvW1LZsU3rnL6rU3a-87J7PHJS62SAKWQ';
 const STORAGE_BUCKET = 'bundle-images'; // создай bucket с таким именем в Supabase Storage → Public
 
 // EmailJS — зарегистрируйся на emailjs.com (бесплатно 200 писем/мес)
@@ -829,6 +842,7 @@ async function enterChat(){
   checkMute();updateOnline();
   await loadMessages();
   connectPoll();
+  startBgDMPoll();
   setInterval(updateOnline,30000);
   setInterval(()=>dbP('bundle_users',`id=eq.${me.id}`,{last_seen:new Date().toISOString()}).catch(()=>{}),20000);
   setInterval(checkMute,15000);
@@ -838,7 +852,14 @@ function updateSidebar(){
   document.getElementById('myHandleSidebar').textContent=me.username?'@'+me.username:'';
   const av=document.getElementById('myAvatarSidebar');
   av.innerHTML=me.avatar?`<img src="${me.avatar}">`:'';
-  if(!me.avatar)av.textContent=me.nickname[0].toUpperCase();
+  if(!me.avatar){
+    av.textContent=me.nickname[0].toUpperCase();
+    const _gi=(me.id||'').split('').reduce((a,c)=>a+c.charCodeAt(0),0)%8;
+    av.className='my-avatar av-grad-'+_gi;
+    av.style.color='#fff';
+  } else {
+    av.className='my-avatar';
+  }
 }
 const canSend=()=>!isMuted()&&(!!(document.getElementById('msgInput').value.trim())||!!attachFile);
 
@@ -881,6 +902,23 @@ async function saveAvatar(){if(!newModalAvatar){closeAvatarModal();return;}const
 
 // ── ADMIN ──
 function toggleAdminMenu(){document.getElementById('adminActionsMenu').classList.toggle('open');}
+async function adminResetAvatars(){
+  document.getElementById('adminActionsMenu').classList.remove('open');
+  if(!confirm('Сбросить аватары всех пользователей?'))return;
+  try{
+    await fetch(`${SUPABASE_URL}/rest/v1/rpc/reset_all_avatars`,{method:'POST',headers:H,body:'{}'});
+    showToast('Аватары сброшены ✅');
+  }catch{showToast('Ошибка');}
+}
+async function adminDeleteAllUsers(){
+  document.getElementById('adminActionsMenu').classList.remove('open');
+  if(!confirm('УДАЛИТЬ ВСЕХ ПОЛЬЗОВАТЕЛЕЙ? Это необратимо!'))return;
+  if(!confirm('Точно уверен? Все аккаунты кроме твоего будут удалены.'))return;
+  try{
+    await fetch(`${SUPABASE_URL}/rest/v1/rpc/delete_all_users`,{method:'POST',headers:H,body:'{}'});
+    showToast('Все пользователи удалены ✅');
+  }catch{showToast('Ошибка');}
+}
 function adminClearChat(){document.getElementById('adminActionsMenu').classList.remove('open');document.getElementById('clearChatModal').classList.add('show');}
 async function confirmClearChat(){document.getElementById('clearChatModal').classList.remove('show');document.getElementById('messagesWrap').innerHTML='<div class="sys-msg">Чат очищен</div>';renderedIds.clear();lastSenderId=null;lastDate=null;lastMsgId=0;try{await dbD('bundle_messages','id=gt.0');showToast('Чат очищен');}catch{showToast('Ошибка');}}
 
@@ -1051,6 +1089,8 @@ async function updateOnline(){
           showToast('Обновление: пожалуйста, зарегистрируйся заново',6000);
           return;
         }
+        // Verify stored session matches - basic replay protection
+        if(local.sessionToken!==undefined&&!fresh[0].password_hash&&!isAdmin(fresh[0].nickname)){localStorage.removeItem('bundle-user');document.body.classList.remove('checking');document.getElementById('authScreen').classList.add('active');return;}
         me={...fresh[0],sessionToken:local.sessionToken||btoa(local.id+':'+Date.now())};
         localStorage.setItem('bundle-user',JSON.stringify(me));
         await dbP('bundle_users',`id=eq.${me.id}`,{last_seen:new Date().toISOString()});
@@ -1079,6 +1119,52 @@ let dmPollTimer=null;
 let dmLastMsgId=0;
 let dmRenderedIds=new Set();
 let dmConversations={}; // uid -> {user, msgs}
+let dmUnread={}; // uid -> count
+let bgDMPoll=null;
+
+// Background poll for incoming DMs from anyone
+async function startBgDMPoll(){
+  if(bgDMPoll)clearInterval(bgDMPoll);
+  bgDMPoll=setInterval(async()=>{
+    if(!me)return;
+    try{
+      const msgs=await dbQ('bundle_dms',{filter:`to_id=eq.${me.id}&id=gt.${bgLastDMId}`,select:'*',order:'created_at.asc',limit:50});
+      if(msgs&&msgs.length>0){
+        msgs.forEach(m=>{
+          if(m.id>bgLastDMId)bgLastDMId=m.id;
+          // If not currently in this DM chat - show badge
+          if(!(currentMode==='dm'&&currentDMUser&&currentDMUser.id===m.from_id)){
+            dmUnread[m.from_id]=(dmUnread[m.from_id]||0)+1;
+            updateDMBadge(m.from_id,m);
+          }
+        });
+      }
+    }catch{}
+  },3000);
+}
+let bgLastDMId=0;
+
+function updateDMBadge(fromId, msg){
+  let el=document.getElementById('dm-'+fromId);
+  if(!el){
+    // Create DM entry in sidebar
+    const gradIdx=fromId.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%8;
+    el=document.createElement('div');
+    el.className='dm-item';el.id='dm-'+fromId;
+    const nick=msg.from_nick||'?';
+    el.innerHTML=`<div class="dm-avatar av-grad-${gradIdx}" style="color:#fff">${nick[0].toUpperCase()}</div><span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nick}</span><span class="unread-badge" id="badge-${fromId}">${dmUnread[fromId]}</span>`;
+    el.onclick=()=>{
+      dmUnread[fromId]=0;const b=document.getElementById('badge-'+fromId);if(b)b.remove();
+      openDMChat({id:fromId,nickname:msg.from_nick||'?',username:'',avatar:null});
+    };
+    document.getElementById('dmList').appendChild(el);
+    showToast('💬 Новое сообщение от '+( msg.from_nick||'?'));
+  } else {
+    let badge=document.getElementById('badge-'+fromId);
+    if(!badge){badge=document.createElement('span');badge.className='unread-badge';badge.id='badge-'+fromId;el.appendChild(badge);}
+    badge.textContent=dmUnread[fromId];
+  }
+}
 
 // ── DM FUNCTIONS ──
 function openNewDM(){
@@ -1123,6 +1209,7 @@ async function openDMChat(target){
   // Load DM messages
   clearInterval(dmPollTimer);
   dmRenderedIds.clear();dmLastMsgId=0;
+  dmUnread[target.id]=0;const _b=document.getElementById('badge-'+target.id);if(_b)_b.remove();
   await loadDMMessages(target);
   dmPollTimer=setInterval(()=>pollDM(target),2000);
 }
@@ -1139,11 +1226,16 @@ function addDMToSidebar(target){
 async function loadDMMessages(target){
   const wrap=document.getElementById('messagesWrap');
   wrap.innerHTML='<div class="loading-msg">Загрузка...</div>';
+  dmRenderedIds.clear();lastSenderId=null;lastDate=null;dmLastMsgId=0;
   try{
-    const filter=`or=(and(from_id.eq.${me.id},to_id.eq.${target.id}),and(from_id.eq.${target.id},to_id.eq.${me.id}))`;
-    const msgs=await dbQ('bundle_dms',{filter,select:'*',order:'created_at.asc',limit:150});
-    wrap.innerHTML='';lastSenderId=null;lastDate=null;
-    if(!msgs||msgs.length===0){wrap.innerHTML='<div class="sys-msg">Начни переписку!</div>';return;}
+    // Fetch both directions separately and merge
+    const [sent,recv]=await Promise.all([
+      dbQ('bundle_dms',{filter:`from_id=eq.${me.id}&to_id=eq.${target.id}`,select:'*',order:'created_at.asc',limit:150}),
+      dbQ('bundle_dms',{filter:`from_id=eq.${target.id}&to_id=eq.${me.id}`,select:'*',order:'created_at.asc',limit:150})
+    ]);
+    const msgs=[...(sent||[]),...(recv||[])].sort((a,b)=>a.id-b.id);
+    wrap.innerHTML='';
+    if(!msgs.length){wrap.innerHTML='<div class="sys-msg">Начни переписку!</div>';return;}
     msgs.forEach(m=>renderDMMsg(m));
     dmLastMsgId=msgs[msgs.length-1].id;
     wrap.scrollTop=wrap.scrollHeight;
@@ -1153,9 +1245,12 @@ async function loadDMMessages(target){
 async function pollDM(target){
   if(!me||!target)return;
   try{
-    const filter=`and(or(and(from_id.eq.${me.id},to_id.eq.${target.id}),and(from_id.eq.${target.id},to_id.eq.${me.id})),id.gt.${dmLastMsgId})`;
-    const msgs=await dbQ('bundle_dms',{filter,select:'*',order:'created_at.asc',limit:30});
-    if(Array.isArray(msgs)&&msgs.length>0)msgs.forEach(m=>{if(m.id>dmLastMsgId)dmLastMsgId=m.id;renderDMMsg(m,true);});
+    const [sent,recv]=await Promise.all([
+      dbQ('bundle_dms',{filter:`from_id=eq.${me.id}&to_id=eq.${target.id}&id=gt.${dmLastMsgId}`,select:'*',order:'created_at.asc',limit:30}),
+      dbQ('bundle_dms',{filter:`from_id=eq.${target.id}&to_id=eq.${me.id}&id=gt.${dmLastMsgId}`,select:'*',order:'created_at.asc',limit:30})
+    ]);
+    const msgs=[...(sent||[]),...(recv||[])].sort((a,b)=>a.id-b.id);
+    if(msgs.length>0)msgs.forEach(m=>{if(m.id>dmLastMsgId)dmLastMsgId=m.id;renderDMMsg(m,true);});
   }catch{}
 }
 
