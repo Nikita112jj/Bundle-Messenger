@@ -817,8 +817,10 @@ function confirmLogout(){
   document.getElementById('logoutModal').classList.remove('show');
   localStorage.removeItem('bundle-user');
   me=null;lastSenderId=null;lastDate=null;renderedIds.clear();
-  clearInterval(pollTimer);document.removeEventListener('visibilitychange',onVis);
-  lastMsgId=0;attachFile=null;
+  clearInterval(pollTimer);clearInterval(bgDMPoll);clearInterval(dmPollTimer);
+  document.removeEventListener('visibilitychange',onVis);
+  lastMsgId=0;attachFile=null;dmUnread={};bgLastDMId=0;
+  document.getElementById('dmList').innerHTML='';
   document.getElementById('chatScreen').classList.remove('active');
   document.getElementById('authScreen').classList.add('active');
   switchTab('login');
@@ -1159,21 +1161,24 @@ let bgLastDMId=0;
 function updateDMBadge(fromId, msg){
   let el=document.getElementById('dm-'+fromId);
   if(!el){
-    // Create DM entry in sidebar
     const gradIdx=fromId.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%16;
     el=document.createElement('div');
     el.className='dm-item';el.id='dm-'+fromId;
     const nick=msg.from_nick||'?';
-    el.innerHTML=`<div class="dm-avatar av-grad-${gradIdx}" style="color:#fff">${nick[0].toUpperCase()}</div><span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nick}</span><span class="unread-badge" id="badge-${fromId}">${dmUnread[fromId]}</span>`;
-    el.onclick=()=>{
+    const target={id:fromId,nickname:nick,username:'',avatar:null};
+    el.innerHTML=`<div class="dm-avatar av-grad-${gradIdx}" style="color:#fff;flex-shrink:0">${nick[0].toUpperCase()}</div><span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nick}</span><span class="unread-badge" id="badge-${fromId}">${dmUnread[fromId]}</span><button onclick="deleteDMChat('${fromId}',event)" style="background:none;border:none;cursor:pointer;color:var(--text2);padding:3px;border-radius:6px;flex-shrink:0;display:flex;align-items:center" onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='var(--text2)'"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg></button>`;
+    el.onclick=(e)=>{
+      if(e.target.closest('button'))return;
       dmUnread[fromId]=0;const b=document.getElementById('badge-'+fromId);if(b)b.remove();
-      openDMChat({id:fromId,nickname:msg.from_nick||'?',username:'',avatar:null});
+      openDMChat(target);
     };
     document.getElementById('dmList').appendChild(el);
-    showToast('💬 Новое сообщение от '+( msg.from_nick||'?'));
+    showToast('💬 Новое сообщение от '+nick);
   } else {
     let badge=document.getElementById('badge-'+fromId);
-    if(!badge){badge=document.createElement('span');badge.className='unread-badge';badge.id='badge-'+fromId;el.appendChild(badge);}
+    if(!badge){badge=document.createElement('span');badge.className='unread-badge';badge.id='badge-'+fromId;
+      const trashBtn=el.querySelector('button');
+      if(trashBtn)el.insertBefore(badge,trashBtn);else el.appendChild(badge);}
     badge.textContent=dmUnread[fromId];
   }
 }
