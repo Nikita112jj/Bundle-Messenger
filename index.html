@@ -268,7 +268,7 @@
   ::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
 
   @media(max-width:640px){
-    .sidebar{position:fixed;left:0;top:0;bottom:0;transform:translateX(-100%);box-shadow:4px 0 20px rgba(0,0,0,.4);}
+    .sidebar{position:fixed;left:0;top:0;bottom:0;transform:translateX(-100%);box-shadow:4px 0 20px rgba(0,0,0,.4);height:100dvh;height:100vh;display:flex;flex-direction:column;}
     .sidebar.open{transform:translateX(0);}
     .hamburger{display:flex;}
     .chat-main{width:100%;}
@@ -279,6 +279,8 @@
     body{height:100dvh;}
     #chatScreen{height:100dvh;}
     .chat-main{height:100dvh;}
+    .channel-list{flex:1;overflow-y:auto;min-height:0;}
+    .sidebar-footer{flex-shrink:0;padding-bottom:max(11px,env(safe-area-inset-bottom));}
   }
 </style>
 </head>
@@ -1101,7 +1103,7 @@ async function showCtxMenu(e,msg){
   const own=(msg.user_id&&msg.user_id===me?.id)||(msg.from_id&&msg.from_id===me?.id);
   const tgAdm=isAdmin(msg.user_nickname||'');
   const isDM=currentMode==='dm';
-  document.getElementById('ctxDelBtn').style.display=(own||(amAdm&&!isDM))?'flex':'none';
+  document.getElementById('ctxDelBtn').style.display=(own||amAdm)?'flex':'none';
   let targetMuted=false;
   if(amAdm&&!own&&!tgAdm&&!isDM){
     try{const u=await dbQ('bundle_users',{filter:`id=eq.${msg.user_id}`,select:'muted_until'});
