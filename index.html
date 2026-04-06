@@ -73,7 +73,7 @@
   #chatScreen{flex-direction:row;position:relative;}
   .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:40;backdrop-filter:blur(2px);}
   .sidebar-overlay.show{display:block;}
-  .sidebar{width:var(--sidebar);min-width:var(--sidebar);background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;height:100vh;transition:transform .3s;z-index:50;}
+  .sidebar{width:var(--sidebar);min-width:var(--sidebar);background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;height:100vh;height:100dvh;transition:transform .3s;z-index:50;overflow:hidden;}
   .sidebar-header{padding:15px 14px 11px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
   .sidebar-brand{display:flex;align-items:center;gap:8px;}
   .sidebar-brand .brand-icon{width:28px;height:28px;border-radius:8px;}
@@ -87,13 +87,13 @@
   .theme-opt:hover{background:var(--bg3);color:var(--text);}
   .theme-opt.active{color:var(--accent);}
   .theme-opt svg{width:14px;height:14px;flex-shrink:0;}
-  .channel-list{flex:1;overflow-y:auto;padding:10px 8px;}
+  .channel-list{flex:1;overflow-y:auto;padding:10px 8px;min-height:0;}
   .channel-label{font-size:10px;font-weight:600;letter-spacing:1.2px;color:var(--text2);text-transform:uppercase;padding:6px 8px 8px;}
   .channel-item{display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;cursor:pointer;transition:background .15s;color:var(--text2);font-size:14px;}
   .channel-item:hover{background:var(--bg3);color:var(--text);}
   .channel-item.active{background:var(--accent-glow);color:var(--accent2);}
   .channel-item svg{width:16px;height:16px;flex-shrink:0;}
-  .sidebar-footer{padding:11px 13px;border-top:1px solid var(--border);display:flex;align-items:center;gap:9px;}
+  .sidebar-footer{padding:11px 13px;border-top:1px solid var(--border);display:flex;align-items:center;gap:9px;flex-shrink:0;}
   .my-avatar-wrap{position:relative;cursor:pointer;flex-shrink:0;}
   .my-avatar-wrap:hover .av-edit-overlay{opacity:1;}
   .my-avatar{width:34px;height:34px;border-radius:50%;overflow:hidden;border:2px solid var(--accent);background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:var(--text2);}
@@ -1584,6 +1584,21 @@ function renderDMMsg(msg,scroll=false){
   // Time + ticks for own msgs
   const tmWrap=document.createElement('div');tmWrap.style.cssText='display:flex;align-items:center;gap:1px;';
   const tm=document.createElement('span');tm.className='msg-time';tm.textContent=fmtTime(msg.created_at);tmWrap.appendChild(tm);
+  if(isOwn){
+    const ticks=document.createElement('span');ticks.className='msg-ticks';ticks.id='dm-ticks-'+msg.id;
+    // Check if peer has read this message (their last_read_id >= this msg id)
+    ticks.innerHTML='<svg viewBox="0 0 12 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 5l3 3 6-6"/></svg>';
+    tmWrap.appendChild(ticks);
+    // Async check read status
+    if(currentDMUser){
+      dbQ('bundle_dm_reads',{filter:`user_id=eq.${currentDMUser.id}&peer_id=eq.${me.id}`,select:'last_read_id'}).then(r=>{
+        if(r&&r[0]&&r[0].last_read_id>=msg.id){
+          ticks.innerHTML='<svg viewBox="0 0 18 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 5l3 3 6-6"/><path d="M7 5l3 3 6-6"/></svg>';
+          ticks.classList.add('read');
+        }
+      }).catch(()=>{});
+    }
+  }
   cont.appendChild(tmWrap);
   if(!isOwn)grp.appendChild(av);grp.appendChild(cont);if(isOwn)grp.appendChild(av);
   wrap.appendChild(grp);
