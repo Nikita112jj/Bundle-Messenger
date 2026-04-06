@@ -268,19 +268,19 @@
   ::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
 
   @media(max-width:640px){
-    .sidebar{position:fixed;left:0;top:0;bottom:0;transform:translateX(-100%);box-shadow:4px 0 20px rgba(0,0,0,.4);height:100dvh;height:100vh;display:flex;flex-direction:column;}
+    .sidebar{position:fixed;left:0;top:0;bottom:0;width:280px!important;min-width:280px!important;transform:translateX(-100%);box-shadow:4px 0 20px rgba(0,0,0,.4);display:flex!important;flex-direction:column!important;overflow:hidden;}
     .sidebar.open{transform:translateX(0);}
+    .sidebar .channel-list{flex:1!important;overflow-y:auto!important;min-height:0!important;}
+    .sidebar .sidebar-footer{flex-shrink:0!important;padding-bottom:max(11px,env(safe-area-inset-bottom));}
     .hamburger{display:flex;}
     .chat-main{width:100%;}
     .msg-content{max-width:82%;}
     .chat-topbar,.messages-wrap,.input-area{padding-left:14px;padding-right:14px;}
     .auth-card{padding:26px 18px;}
-    .input-area{padding-bottom:max(13px, env(safe-area-inset-bottom));}
+    .input-area{padding-bottom:max(13px,env(safe-area-inset-bottom));}
     body{height:100dvh;}
     #chatScreen{height:100dvh;}
     .chat-main{height:100dvh;}
-    .channel-list{flex:1;overflow-y:auto;min-height:0;}
-    .sidebar-footer{flex-shrink:0;padding-bottom:max(11px,env(safe-area-inset-bottom));}
   }
 </style>
 </head>
