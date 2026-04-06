@@ -1098,7 +1098,7 @@ async function showCtxMenu(e,msg){
   ctxMsg=msg;
   const menu=document.getElementById('msgMenu');
   const amAdm=isAdmin(me?.nickname||'');
-  const own=msg.user_id===me?.id||msg.from_id===me?.id;
+  const own=(msg.user_id&&msg.user_id===me?.id)||(msg.from_id&&msg.from_id===me?.id);
   const tgAdm=isAdmin(msg.user_nickname||'');
   const isDM=currentMode==='dm';
   document.getElementById('ctxDelBtn').style.display=(own||(amAdm&&!isDM))?'flex':'none';
@@ -1139,14 +1139,18 @@ async function ctxDelete(){
   if(!ctxMsg)return;const id=ctxMsg.id;hideMsgMenu();
   const el=document.querySelector(`[data-msg-id="${id}"]`);
   if(el)el.style.opacity='0.4';
-  renderedIds.delete(String(id));
+  const table=currentMode==='dm'?'bundle_dms':'bundle_messages';
+  if(currentMode!=='dm')renderedIds.delete(String(id));
+  else dmRenderedIds.delete(String(id));
   try{
-    const r=await fetch(`${SUPABASE_URL}/rest/v1/bundle_messages?id=eq.${id}`,{method:'DELETE',headers:H});
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`,{method:'DELETE',headers:H});
     if(!r.ok)throw new Error(await r.text());
     if(el)el.remove();
     showToast('Удалено');
   }catch(e){
-    if(el){el.style.opacity='1';renderedIds.add(String(id));}
+    if(el){el.style.opacity='1';}
+    if(currentMode!=='dm')renderedIds.add(String(id));
+    else dmRenderedIds.add(String(id));
     showToast('Ошибка удаления');
     console.error(e);
   }
@@ -1320,125 +1324,121 @@ let dmUnread={}; // uid -> count
 let bgDMPoll=null;
 
 // Background poll for incoming DMs from anyone
+// ── DM HELPERS ──
+function dmGrad(uid){return (uid||'').split('').reduce((a,c)=>a+c.charCodeAt(0),0)%16;}
+function dmAvHtml(u,size=28){
+  const g=dmGrad(u.id||u.peer_id||'');
+  const s=`width:${size}px;height:${size}px;border-radius:50%;object-fit:cover`;
+  return u.avatar?`<img src="${u.avatar}" style="${s}">`:(u.nickname||u.peer_nick||'?')[0].toUpperCase();
+}
+function buildDMItem(target){
+  const el=document.createElement('div');
+  el.className='dm-item';el.id='dm-'+target.id;
+  const g=dmGrad(target.id);
+  el.innerHTML=`
+    <div class="dm-avatar av-grad-${g}" style="color:#fff;flex-shrink:0;width:28px;height:28px">${dmAvHtml(target)}</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)">${target.nickname}</div>
+      ${target.username?`<div style="font-size:10px;color:var(--text2)">@${target.username}</div>`:''}
+    </div>
+    <span class="unread-badge" id="badge-${target.id}" style="display:none"></span>
+    <button onclick="deleteDMChat('${target.id}',event)" style="background:none;border:none;cursor:pointer;color:var(--text2);padding:3px;border-radius:6px;flex-shrink:0;display:flex;align-items:center" onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='var(--text2)'">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>
+    </button>`;
+  el.onclick=(e)=>{if(!e.target.closest('button'))openDMChat(target);};
+  return el;
+}
+function showDMBadge(uid,count){
+  const b=document.getElementById('badge-'+uid);
+  if(!b)return;
+  if(count>0){b.textContent=count;b.style.display='';}
+  else b.style.display='none';
+}
+
+// ── LOAD DM CHATS FROM SERVER ──
 async function loadDMChats(){
   if(!me)return;
   try{
     const chats=await dbQ('bundle_dm_chats',{filter:`user_id=eq.${me.id}`,select:'*'});
     if(!chats||!chats.length)return;
-    // Fetch fresh user data for all peers at once
-    const peerIds=chats.map(c=>c.peer_id).join(',');
-    let freshUsers={};
-    try{
-      const users=await dbQ('bundle_users',{filter:`id=in.(${peerIds})`,select:'id,nickname,username,avatar'});
-      if(users)users.forEach(u=>{freshUsers[u.id]=u;});
-    }catch{}
+    // Fetch fresh user data
+    const ids=chats.map(c=>c.peer_id);
+    const users=await dbQ('bundle_users',{filter:`id=in.(${ids.join(',')})`,select:'id,nickname,username,avatar'});
+    const umap={};if(users)users.forEach(u=>umap[u.id]=u);
     for(const c of chats){
       if(document.getElementById('dm-'+c.peer_id))continue;
-      const fresh=freshUsers[c.peer_id];
-      // Skip if user no longer exists
-      if(!fresh)continue;
-      const target={id:c.peer_id,nickname:fresh.nickname||c.peer_nick,username:fresh.username||c.peer_username||'',avatar:fresh.avatar||c.peer_avatar};
-      const gradIdx=c.peer_id.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%16;
-      const el=document.createElement('div');
-      el.className='dm-item';el.id='dm-'+c.peer_id;
-      el.innerHTML=`<div class="dm-avatar av-grad-${gradIdx}" style="color:#fff;flex-shrink:0">${c.peer_avatar?`<img src="${c.peer_avatar}" style="width:28px;height:28px;border-radius:50%;object-fit:cover">`:(c.peer_nick||'?')[0].toUpperCase()}</div><div style="flex:1;min-width:0"><div style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.peer_nick}</div>${c.peer_username?`<div style="font-size:10px;color:var(--text2)">@${c.peer_username}</div>`:''}</div><button onclick="deleteDMChat('${c.peer_id}',event)" style="background:none;border:none;cursor:pointer;color:var(--text2);padding:3px;border-radius:6px;flex-shrink:0;display:flex;align-items:center" onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='var(--text2)'"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg></button>`;
-      el.onclick=(e)=>{if(!e.target.closest('button'))openDMChat(target);};
-      document.getElementById('dmList').appendChild(el);
+      const u=umap[c.peer_id];
+      if(!u)continue; // user deleted
+      const target={id:c.peer_id,nickname:u.nickname,username:u.username||'',avatar:u.avatar||null};
+      document.getElementById('dmList').appendChild(buildDMItem(target));
     }
-    // Check unread counts for each chat
     checkAllDMUnread();
   }catch(e){console.error('loadDMChats:',e);}
 }
 
+// ── UNREAD COUNTS ──
 async function checkAllDMUnread(){
   if(!me)return;
   try{
-    // Get all incoming DMs not yet read
-    const reads=await dbQ('bundle_dm_reads',{filter:`user_id=eq.${me.id}`,select:'*'});
-    const readMap={};
-    if(reads)reads.forEach(r=>readMap[r.peer_id]=r.last_read_id||0);
-    // For each DM chat check if there are unread msgs
-    const chats=document.querySelectorAll('#dmList .dm-item');
-    for(const el of chats){
+    const reads=await dbQ('bundle_dm_reads',{filter:`user_id=eq.${me.id}`,select:'peer_id,last_read_id'});
+    const readMap={};if(reads)reads.forEach(r=>readMap[r.peer_id]=r.last_read_id||0);
+    const items=document.querySelectorAll('#dmList .dm-item');
+    for(const el of items){
       const uid=el.id.replace('dm-','');
       const lastRead=readMap[uid]||0;
       const msgs=await dbQ('bundle_dms',{filter:`from_id=eq.${uid}&to_id=eq.${me.id}&id=gt.${lastRead}`,select:'id',limit:99});
       const count=msgs?msgs.length:0;
-      if(count>0){
-        dmUnread[uid]=count;
-        let badge=document.getElementById('badge-'+uid);
-        if(!badge){
-          badge=document.createElement('span');badge.className='unread-badge';badge.id='badge-'+uid;
-          const trash=el.querySelector('button');
-          if(trash)el.insertBefore(badge,trash);else el.appendChild(badge);
-        }
-        badge.textContent=count;
-      }
+      dmUnread[uid]=count;
+      showDMBadge(uid,count);
     }
   }catch(e){console.error('checkAllDMUnread:',e);}
 }
 
+// ── CLEAN STALE DMs ──
 async function cleanStaleDMs(){
-  // Remove DM entries for users that no longer exist
-  const dmEls=document.querySelectorAll('#dmList .dm-item');
-  for(const el of dmEls){
-    const uid=el.id.replace('dm-','');
-    try{
+  if(!me)return;
+  try{
+    const items=document.querySelectorAll('#dmList .dm-item');
+    for(const el of items){
+      const uid=el.id.replace('dm-','');
       const u=await dbQ('bundle_users',{filter:`id=eq.${uid}`,select:'id'});
-      if(!u||u.length===0){el.remove();delete dmUnread[uid];}
-    }catch{}
-  }
+      if(!u||!u.length)el.remove();
+    }
+  }catch{}
 }
 
+// ── BG POLL FOR INCOMING DMs ──
 async function startBgDMPoll(){
   if(bgDMPoll)clearInterval(bgDMPoll);
   bgDMPoll=setInterval(async()=>{
     if(!me)return;
     try{
-      const msgs=await dbQ('bundle_dms',{filter:`to_id=eq.${me.id}&id=gt.${bgLastDMId}`,select:'*',order:'created_at.asc',limit:50});
-      if(msgs&&msgs.length>0){
-        msgs.forEach(m=>{
-          if(m.id>bgLastDMId)bgLastDMId=m.id;
-          // If not currently in this DM chat - show badge
-          if(!(currentMode==='dm'&&currentDMUser&&currentDMUser.id===m.from_id)){
-            dmUnread[m.from_id]=(dmUnread[m.from_id]||0)+1;
-            updateDMBadge(m.from_id,m);
-          }
-        });
-      }
+      const msgs=await dbQ('bundle_dms',{filter:`to_id=eq.${me.id}&id=gt.${bgLastDMId}`,select:'*',order:'id.asc',limit:50});
+      if(!msgs||!msgs.length)return;
+      msgs.forEach(m=>{
+        if(m.id>bgLastDMId)bgLastDMId=m.id;
+        if(currentMode==='dm'&&currentDMUser&&currentDMUser.id===m.from_id)return;
+        dmUnread[m.from_id]=(dmUnread[m.from_id]||0)+1;
+        // Add to sidebar if not exists
+        if(!document.getElementById('dm-'+m.from_id)){
+          dbQ('bundle_users',{filter:`id=eq.${m.from_id}`,select:'id,nickname,username,avatar'}).then(u=>{
+            if(!u||!u.length)return;
+            const target={id:m.from_id,nickname:u[0].nickname,username:u[0].username||'',avatar:u[0].avatar||null};
+            document.getElementById('dmList').appendChild(buildDMItem(target));
+            // Save to server
+            fetch(`${SUPABASE_URL}/rest/v1/bundle_dm_chats`,{method:'POST',headers:{...H,'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({user_id:me.id,peer_id:m.from_id,peer_nick:u[0].nickname,peer_username:u[0].username||'',peer_avatar:u[0].avatar||null})}).catch(()=>{});
+            showToast('💬 Новое сообщение от '+u[0].nickname);
+            showDMBadge(m.from_id,dmUnread[m.from_id]);
+          });
+        } else {
+          showDMBadge(m.from_id,dmUnread[m.from_id]);
+        }
+      });
     }catch{}
   },3000);
 }
-let bgLastDMId=0;
 
-function updateDMBadge(fromId, msg){
-  let el=document.getElementById('dm-'+fromId);
-  if(!el){
-    const gradIdx=fromId.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%16;
-    el=document.createElement('div');
-    el.className='dm-item';el.id='dm-'+fromId;
-    const nick=msg.from_nick||'?';
-    const target={id:fromId,nickname:nick,username:'',avatar:null};
-    el.innerHTML=`<div class="dm-avatar av-grad-${gradIdx}" style="color:#fff;flex-shrink:0">${nick[0].toUpperCase()}</div><span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nick}</span><span class="unread-badge" id="badge-${fromId}">${dmUnread[fromId]}</span><button onclick="deleteDMChat('${fromId}',event)" style="background:none;border:none;cursor:pointer;color:var(--text2);padding:3px;border-radius:6px;flex-shrink:0;display:flex;align-items:center" onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='var(--text2)'"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg></button>`;
-    el.onclick=(e)=>{
-      if(e.target.closest('button'))return;
-      dmUnread[fromId]=0;const b=document.getElementById('badge-'+fromId);if(b)b.remove();
-      openDMChat(target);
-    };
-    document.getElementById('dmList').appendChild(el);
-    showToast('💬 Новое сообщение от '+nick);
-    // Save to server so it persists after reload
-    try{fetch(`${SUPABASE_URL}/rest/v1/bundle_dm_chats`,{method:'POST',headers:{...H,'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({user_id:me.id,peer_id:fromId,peer_nick:nick,peer_username:'',peer_avatar:null})});}catch{}
-  } else {
-    let badge=document.getElementById('badge-'+fromId);
-    if(!badge){badge=document.createElement('span');badge.className='unread-badge';badge.id='badge-'+fromId;
-      const trashBtn=el.querySelector('button');
-      if(trashBtn)el.insertBefore(badge,trashBtn);else el.appendChild(badge);}
-    badge.textContent=dmUnread[fromId];
-  }
-}
-
-// ── DM FUNCTIONS ──
+// ── OPEN NEW DM MODAL ──
 function openNewDM(){
   document.getElementById('dmUsernameInput').value='';
   document.getElementById('dmErr').textContent='';
@@ -1455,72 +1455,61 @@ async function startDM(){
   const btn=document.getElementById('dmStartBtn');btn.disabled=true;btn.textContent='Ищем...';
   try{
     const users=await dbQ('bundle_users',{filter:`username=ilike.${encodeURIComponent(uname)}`,select:'id,nickname,username,avatar'});
-    if(!users||users.length===0){err.textContent='Пользователь не найден';btn.disabled=false;btn.textContent='Открыть чат';return;}
-    if(!users[0].username){err.textContent='У этого пользователя нет @username';btn.disabled=false;btn.textContent='Открыть чат';return;}
-    const target=users[0];
+    if(!users||!users.length){err.textContent='Пользователь не найден';btn.disabled=false;btn.textContent='Открыть чат';return;}
+    if(!users[0].username){err.textContent='У пользователя нет @username';btn.disabled=false;btn.textContent='Открыть чат';return;}
     closeNewDM();
-    openDMChat(target);
+    openDMChat({id:users[0].id,nickname:users[0].nickname,username:users[0].username,avatar:users[0].avatar||null});
   }catch{err.textContent='Ошибка подключения';}
   btn.disabled=false;btn.textContent='Открыть чат';
 }
 
+// ── OPEN DM CHAT ──
 async function openDMChat(target){
   currentMode='dm';
-  // Fetch fresh user data to get username/avatar
-  try{
-    const fresh=await dbQ('bundle_users',{filter:`id=eq.${target.id}`,select:'id,nickname,username,avatar'});
-    if(fresh&&fresh[0])target={...target,...fresh[0]};
-  }catch{}
   currentDMUser=target;
   closeSidebar();
+  clearInterval(dmPollTimer);
+  dmUnread[target.id]=0;
+  showDMBadge(target.id,0);
   // Update topbar
-  const gradIdx=target.id.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%16;
-  document.getElementById('chatTopbarIcon').innerHTML=`<div class="dm-avatar av-grad-${gradIdx}" style="width:34px;height:34px;font-size:13px;font-weight:700;color:#fff">${target.avatar?`<img src="${target.avatar}" style="width:34px;height:34px;border-radius:50%;object-fit:cover">`:(target.nickname||'?')[0].toUpperCase()}</div>`;
+  const g=dmGrad(target.id);
+  document.getElementById('chatTopbarIcon').innerHTML=`<div class="dm-avatar av-grad-${g}" style="width:34px;height:34px;font-size:13px;font-weight:700;color:#fff;display:flex;align-items:center;justify-content:center;border-radius:50%">${target.avatar?`<img src="${target.avatar}" style="width:34px;height:34px;border-radius:50%;object-fit:cover">`:(target.nickname||'?')[0].toUpperCase()}</div>`;
   document.getElementById('chatTopbarTitle').textContent=target.nickname;
-  document.getElementById('chatTopbarSub').textContent='@'+target.username;
-  // Update sidebar active state
+  document.getElementById('chatTopbarSub').textContent=target.username?('@'+target.username):'';
+  // Update sidebar active
   document.getElementById('globalChatItem').classList.remove('active');
   document.querySelectorAll('.dm-item').forEach(el=>el.classList.remove('active'));
-  const dmEl=document.getElementById('dm-'+target.id);
-  if(dmEl)dmEl.classList.add('active');
-  else addDMToSidebar(target);
-  // Load DM messages
-  clearInterval(dmPollTimer);
-  dmRenderedIds.clear();dmLastMsgId=0;
-  dmUnread[target.id]=0;const _b=document.getElementById('badge-'+target.id);if(_b)_b.remove();
-  await loadDMMessages(target);
-  dmPollTimer=setInterval(()=>pollDM(target),2000);
-}
-
-function addDMToSidebar(target){
-  const gradIdx=target.id.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%16;
-  const el=document.createElement('div');
-  el.className='dm-item active';el.id='dm-'+target.id;
-  el.innerHTML=`<div class="dm-avatar av-grad-${gradIdx}" style="color:#fff;flex-shrink:0">${target.avatar?`<img src="${target.avatar}" style="width:28px;height:28px;border-radius:50%;object-fit:cover">`:(target.nickname||'?')[0].toUpperCase()}</div><span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${target.nickname}</span><button onclick="deleteDMChat('${target.id}',event)" style="background:none;border:none;cursor:pointer;color:var(--text2);padding:3px;border-radius:6px;flex-shrink:0;display:flex;align-items:center" onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='var(--text2)'"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg></button>`;
-  el.onclick=(e)=>{if(!e.target.closest('button'))openDMChat(target);};
-  document.getElementById('dmList').appendChild(el);
-  // Save DM chat to server
-  try{fetch(`${SUPABASE_URL}/rest/v1/bundle_dm_chats`,{method:'POST',headers:{...H,'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({user_id:me.id,peer_id:target.id,peer_nick:target.nickname,peer_username:target.username||'',peer_avatar:target.avatar||null})});}catch{}
-}
-
-async function loadDMMessages(target){
-  const wrap=document.getElementById('messagesWrap');
-  wrap.innerHTML='<div class="loading-msg">Загрузка...</div>';
-  dmRenderedIds.clear();lastSenderId=null;lastDate=null;dmLastMsgId=0;
-  // Mark incoming DMs as read - save last read id
+  let dmEl=document.getElementById('dm-'+target.id);
+  if(!dmEl){
+    dmEl=buildDMItem(target);
+    document.getElementById('dmList').appendChild(dmEl);
+    // Save to server
+    fetch(`${SUPABASE_URL}/rest/v1/bundle_dm_chats`,{method:'POST',headers:{...H,'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({user_id:me.id,peer_id:target.id,peer_nick:target.nickname,peer_username:target.username||'',peer_avatar:target.avatar||null})}).catch(()=>{});
+  }
+  dmEl.classList.add('active');
+  // Mark as read
   try{
     const latest=await dbQ('bundle_dms',{filter:`from_id=eq.${target.id}&to_id=eq.${me.id}`,select:'id',order:'id.desc',limit:1});
     const lastId=latest&&latest[0]?latest[0].id:0;
     await fetch(`${SUPABASE_URL}/rest/v1/bundle_dm_reads`,{method:'POST',headers:{...H,'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({user_id:me.id,peer_id:target.id,last_read_id:lastId})});
   }catch{}
+  // Load messages
+  dmRenderedIds.clear();lastSenderId=null;lastDate=null;dmLastMsgId=0;
+  await loadDMMessages(target);
+  dmPollTimer=setInterval(()=>pollDM(target),2000);
+}
+
+// ── LOAD DM MESSAGES ──
+async function loadDMMessages(target){
+  const wrap=document.getElementById('messagesWrap');
+  wrap.innerHTML='<div class="loading-msg">Загрузка...</div>';
   try{
-    // Fetch both directions separately and merge
     const [sent,recv]=await Promise.all([
       dbQ('bundle_dms',{filter:`from_id=eq.${me.id}&to_id=eq.${target.id}`,select:'*',order:'created_at.asc',limit:150}),
       dbQ('bundle_dms',{filter:`from_id=eq.${target.id}&to_id=eq.${me.id}`,select:'*',order:'created_at.asc',limit:150})
     ]);
     const msgs=[...(sent||[]),...(recv||[])].sort((a,b)=>a.id-b.id);
-    wrap.innerHTML='';
+    wrap.innerHTML='';lastSenderId=null;lastDate=null;
     if(!msgs.length){wrap.innerHTML='<div class="sys-msg">Начни переписку!</div>';return;}
     msgs.forEach(m=>renderDMMsg(m));
     dmLastMsgId=msgs[msgs.length-1].id;
@@ -1528,18 +1517,25 @@ async function loadDMMessages(target){
   }catch(e){console.error(e);wrap.innerHTML='<div class="loading-msg" style="color:#f87171">Ошибка загрузки</div>';}
 }
 
+// ── POLL DM ──
 async function pollDM(target){
   if(!me||!target)return;
   try{
     const [sent,recv]=await Promise.all([
-      dbQ('bundle_dms',{filter:`from_id=eq.${me.id}&to_id=eq.${target.id}&id=gt.${dmLastMsgId}`,select:'*',order:'created_at.asc',limit:30}),
-      dbQ('bundle_dms',{filter:`from_id=eq.${target.id}&to_id=eq.${me.id}&id=gt.${dmLastMsgId}`,select:'*',order:'created_at.asc',limit:30})
+      dbQ('bundle_dms',{filter:`from_id=eq.${me.id}&to_id=eq.${target.id}&id=gt.${dmLastMsgId}`,select:'*',order:'id.asc',limit:30}),
+      dbQ('bundle_dms',{filter:`from_id=eq.${target.id}&to_id=eq.${me.id}&id=gt.${dmLastMsgId}`,select:'*',order:'id.asc',limit:30})
     ]);
     const msgs=[...(sent||[]),...(recv||[])].sort((a,b)=>a.id-b.id);
-    if(msgs.length>0)msgs.forEach(m=>{if(m.id>dmLastMsgId)dmLastMsgId=m.id;renderDMMsg(m,true);});
+    if(msgs.length){
+      msgs.forEach(m=>{if(m.id>dmLastMsgId)dmLastMsgId=m.id;renderDMMsg(m,true);});
+      // Mark as read
+      const lastId=msgs[msgs.length-1].id;
+      fetch(`${SUPABASE_URL}/rest/v1/bundle_dm_reads`,{method:'POST',headers:{...H,'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({user_id:me.id,peer_id:target.id,last_read_id:lastId})}).catch(()=>{});
+    }
   }catch{}
 }
 
+// ── RENDER DM MESSAGE ──
 function renderDMMsg(msg,scroll=false){
   if(dmRenderedIds.has(String(msg.id)))return;
   dmRenderedIds.add(String(msg.id));
@@ -1548,19 +1544,24 @@ function renderDMMsg(msg,scroll=false){
   const nick=isOwn?me.nickname:(currentDMUser?.nickname||msg.from_nick||'?');
   const avatar=isOwn?me.avatar:(currentDMUser?.avatar||null);
   const uid=msg.from_id;
-  const gradIdx=uid.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%16;
+  const g=dmGrad(uid);
   const ds=fmtDate(msg.created_at);
   if(ds!==lastDate){const d=document.createElement('div');d.className='date-divider';d.textContent=ds;wrap.appendChild(d);lastDate=ds;lastSenderId=null;}
   const showSnd=!isOwn&&uid!==lastSenderId;lastSenderId=uid;
-  const grp=document.createElement('div');grp.className='msg-group'+(isOwn?' own':'');
+  const grp=document.createElement('div');
+  grp.className='msg-group'+(isOwn?' own':'');
   grp.dataset.msgId=msg.id;
-  grp.addEventListener('click',e=>{e.stopPropagation();showCtxMenu(e,{id:msg.id,content:msg.content,from_id:msg.from_id,user_id:msg.from_id,user_nickname:nick,image_url:msg.image_url||null});});
-  const av=document.createElement('div');av.className='msg-avatar av-grad-'+gradIdx;av.style.color='#fff';
+  grp.addEventListener('click',e=>{
+    e.stopPropagation();
+    showCtxMenu(e,{id:msg.id,content:msg.content,from_id:msg.from_id,user_id:msg.from_id,user_nickname:nick,image_url:msg.image_url||null});
+  });
+  // Avatar
+  const av=document.createElement('div');
+  av.className=`msg-avatar av-grad-${g}`;av.style.color='#fff';
   if(avatar)av.innerHTML=`<img src="${avatar}" style="width:28px;height:28px;border-radius:50%;object-fit:cover">`;
   else av.textContent=(nick||'?')[0].toUpperCase();
-  // Show avatar only on last msg of a group (first time sender appears)
-  if(isOwn){av.style.visibility='hidden';}
-  else if(msg.user_id===lastSenderId&&showSender===false){av.style.visibility='hidden';}
+  if(isOwn||!showSnd)av.style.visibility='hidden';
+  // Content
   const cont=document.createElement('div');cont.className='msg-content';
   if(showSnd){const s=document.createElement('div');s.className='msg-sender';s.textContent=nick;cont.appendChild(s);}
   if(msg.image_url){
@@ -1570,55 +1571,39 @@ function renderDMMsg(msg,scroll=false){
     const sp=document.createElement('div');sp.className='img-spinner';
     sp.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>';
     img.onload=()=>{img.classList.add('loaded');sp.classList.add('hide');};
-    img.src=msg.image_url;ph.appendChild(img);ph.appendChild(sp);bbl.appendChild(ph);
+    img.src=msg.image_url;
+    img.onclick=ev=>{ev.stopPropagation();document.getElementById('lightboxImg').src=msg.image_url;document.getElementById('lightbox').classList.add('show');};
+    ph.appendChild(img);ph.appendChild(sp);bbl.appendChild(ph);
     if(msg.content){const cap=document.createElement('div');cap.className='img-caption';cap.textContent=msg.content;bbl.appendChild(cap);}
     cont.appendChild(bbl);
-  } else if(msg.content||msg.reply_to_id){
-    const bbl=document.createElement('div');bbl.className='bubble';
-    if(msg.reply_to_id){
-      const rb=document.createElement('div');rb.className='reply-bubble';
-      rb.innerHTML=`<strong>${msg.reply_to_nick||''}</strong>${msg.reply_to_text||''}`;
-      rb.onclick=ev=>{ev.stopPropagation();const orig=document.querySelector(`[data-msg-id="${msg.reply_to_id}"]`);if(orig){orig.scrollIntoView({behavior:'smooth',block:'center'});orig.style.background='var(--accent-glow)';setTimeout(()=>orig.style.background='',1200);}};
-      bbl.appendChild(rb);
-    }
-    if(msg.content){const t=document.createElement('span');t.textContent=msg.content;bbl.appendChild(t);}
-    cont.appendChild(bbl);
+  } else if(msg.content){
+    const bbl=document.createElement('div');bbl.className='bubble';bbl.textContent=msg.content;cont.appendChild(bbl);
   }
+  // Time + ticks for own msgs
   const tmWrap=document.createElement('div');tmWrap.style.cssText='display:flex;align-items:center;gap:1px;';
   const tm=document.createElement('span');tm.className='msg-time';tm.textContent=fmtTime(msg.created_at);tmWrap.appendChild(tm);
-  if(isOwn&&currentMode!=='dm'){
-    const ticks=document.createElement('span');ticks.className='msg-ticks';ticks.id='ticks-'+msg.id;
-    const isRead=(msg.read_count||0)>0;
-    ticks.innerHTML=isRead
-      ?'<svg viewBox="0 0 18 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 5l3 3 6-6"/><path d="M7 5l3 3 6-6"/></svg>'
-      :'<svg viewBox="0 0 12 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 5l3 3 6-6"/></svg>';
-    if(isRead)ticks.classList.add('read');
-    tmWrap.appendChild(ticks);
-  }
   cont.appendChild(tmWrap);
   if(!isOwn)grp.appendChild(av);grp.appendChild(cont);if(isOwn)grp.appendChild(av);
   wrap.appendChild(grp);
   if(scroll){const atBot=wrap.scrollHeight-wrap.scrollTop-wrap.clientHeight<120;if(atBot||isOwn)wrap.scrollTop=wrap.scrollHeight;}
 }
 
-async function deleteDMChat(uid, e){
+// ── DELETE DM CHAT ──
+async function deleteDMChat(uid,e){
   e.stopPropagation();
-  const el=document.getElementById('dm-'+uid);
-  const nick=el?el.querySelector('div > div')?.textContent||'этот чат':'этот чат';
-  if(!await customConfirm('Удалить чат?',`Переписка с ${nick} будет удалена.`))return;
+  if(!await customConfirm('Удалить чат?','Переписка будет удалена.'))return;
   try{
-    // Delete DM messages
     await fetch(`${SUPABASE_URL}/rest/v1/bundle_dms?from_id=eq.${me.id}&to_id=eq.${uid}`,{method:'DELETE',headers:H});
     await fetch(`${SUPABASE_URL}/rest/v1/bundle_dms?from_id=eq.${uid}&to_id=eq.${me.id}`,{method:'DELETE',headers:H});
-    // Remove from saved chats
     await fetch(`${SUPABASE_URL}/rest/v1/bundle_dm_chats?user_id=eq.${me.id}&peer_id=eq.${uid}`,{method:'DELETE',headers:H});
-    // Remove read record
     await fetch(`${SUPABASE_URL}/rest/v1/bundle_dm_reads?user_id=eq.${me.id}&peer_id=eq.${uid}`,{method:'DELETE',headers:H});
   }catch(e){console.error(e);}
-  if(el)el.remove();
-  if(currentMode==='dm'&&currentDMUser&&currentDMUser.id===uid) switchToGlobal();
+  const el=document.getElementById('dm-'+uid);if(el)el.remove();
   delete dmUnread[uid];
+  if(currentMode==='dm'&&currentDMUser&&currentDMUser.id===uid)switchToGlobal();
 }
+
+// ── SWITCH TO GLOBAL ──
 function switchToGlobal(){
   currentMode='global';currentDMUser=null;
   clearInterval(dmPollTimer);
@@ -1631,7 +1616,7 @@ function switchToGlobal(){
   loadMessages().then(()=>connectPoll());
 }
 
-// Override sendMessage to handle DM mode
+// ── SEND DM (override sendMessage) ──
 const _origSendMessage=sendMessage;
 window.sendMessage=async function(){
   if(currentMode==='dm'&&currentDMUser){
