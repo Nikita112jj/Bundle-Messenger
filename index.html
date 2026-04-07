@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bundle</title>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
   :root{--bg:#0e0e10;--bg2:#16161a;--bg3:#1e1e24;--border:#2a2a35;--text:#f0f0f5;--text2:#8888a0;--accent:#7c5cfc;--accent2:#a78bfa;--accent-glow:rgba(124,92,252,0.25);--msg-own:#2a1f5c;--msg-other:#1e1e24;--online:#22c55e;--sidebar:260px;}
@@ -164,7 +165,7 @@
   .admin-badge{display:inline-flex;align-items:center;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:9px;font-weight:700;letter-spacing:.5px;padding:1px 5px;border-radius:4px;vertical-align:middle;margin-left:4px;text-transform:uppercase;}
 
   /* Image messages */
-  .chat-img{max-width:240px;max-height:200px;border-radius:10px;display:block;cursor:zoom-in;}
+  .chat-img{max-width:240px;max-height:200px;border-radius:10px;display:block;cursor:zoom-in;background:transparent;}
   .bubble.img-bubble{background:transparent;border:none;padding:4px 0;}
   .msg-group.own .bubble.img-bubble{background:transparent;border:none;}
   .img-caption{font-size:13px;margin-top:5px;padding:7px 11px;background:var(--msg-other);border-radius:0 0 10px 10px;border:1px solid var(--border);border-top:none;}
@@ -256,7 +257,7 @@
   .add-dm-btn{width:20px;height:20px;border-radius:5px;background:var(--bg3);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text2);transition:color .15s,background .15s;}
   .add-dm-btn:hover{color:var(--accent);background:var(--accent-glow);}
   .add-dm-btn svg{width:11px;height:11px;}
-  .img-placeholder{position:relative;display:inline-block;border-radius:10px;overflow:hidden;max-width:240px;min-width:120px;min-height:80px;background:var(--bg3);}
+  .img-placeholder{position:relative;display:inline-flex;align-items:center;justify-content:center;border-radius:10px;overflow:hidden;max-width:240px;max-height:200px;min-width:0;min-height:0;background:transparent;}
   .img-placeholder img.chat-img{filter:blur(12px);transform:scale(1.05);transition:filter .4s,transform .4s;}
   .img-placeholder img.chat-img.loaded{filter:none;transform:scale(1);}
   .img-placeholder .img-spinner{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.2);transition:opacity .3s;}
@@ -632,6 +633,94 @@ async function uploadImg(file) {
   return `${SUPABASE_URL}/storage/v1/object/public/${STORAGE_BUCKET}/${name}`;
 }
 
+// Supabase SDK layer
+const { createClient } = window.supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth:{persistSession:false,autoRefreshToken:false},
+  realtime:{params:{eventsPerSecond:20}}
+});
+function splitFilterParts(filter=''){
+  return String(filter).split('&').map(s=>s.trim()).filter(Boolean);
+}
+function decodeFilterValue(v=''){
+  return decodeURIComponent(v).replace(/^"|"$/g,'');
+}
+function applySingleFilter(query, part){
+  const eqIndex=part.indexOf('=');
+  if(eqIndex===-1)return query;
+  const column=part.slice(0,eqIndex);
+  const rawExpr=part.slice(eqIndex+1);
+  const dotIndex=rawExpr.indexOf('.');
+  if(dotIndex===-1)return query;
+  const op=rawExpr.slice(0,dotIndex);
+  const rawValue=rawExpr.slice(dotIndex+1);
+  const value=decodeFilterValue(rawValue);
+  if(op==='in'){
+    const list=value.replace(/^\(/,'').replace(/\)$/,'').split(',').map(v=>decodeFilterValue(v.trim())).filter(Boolean);
+    return query.in(column,list);
+  }
+  if(op==='is')return query.is(column,value==='null'?null:value);
+  if(op==='eq')return query.eq(column,value);
+  if(op==='neq')return query.neq(column,value);
+  if(op==='gt')return query.gt(column,value);
+  if(op==='gte')return query.gte(column,value);
+  if(op==='lt')return query.lt(column,value);
+  if(op==='lte')return query.lte(column,value);
+  if(op==='ilike')return query.ilike(column,value);
+  if(op==='like')return query.like(column,value);
+  return query.filter(column,op,value);
+}
+function applyFilters(query, filter){
+  return splitFilterParts(filter).reduce((acc, part)=>applySingleFilter(acc, part), query);
+}
+async function unwrap(promise){
+  const {data,error}=await promise;
+  if(error)throw error;
+  return data;
+}
+function applyQueryOptions(query, p={}){
+  let q=query;
+  if(p.filter)q=applyFilters(q,p.filter);
+  if(p.order){
+    const [column,dir]=String(p.order).split('.');
+    q=q.order(column,{ascending:(dir||'asc').toLowerCase()!=='desc'});
+  }
+  if(p.limit)q=q.limit(p.limit);
+  return q;
+}
+dbQ = async function(table, p={}){
+  let q=sb.from(table).select(p.select||'*');
+  q=applyQueryOptions(q,p);
+  return unwrap(q);
+};
+dbI = async function(table,data){
+  return unwrap(sb.from(table).insert(data).select());
+};
+dbP = async function(table,filter,data){
+  let q=sb.from(table).update(data).select();
+  q=applyFilters(q,filter);
+  return unwrap(q);
+};
+dbD = async function(table,filter){
+  let q=sb.from(table).delete();
+  q=applyFilters(q,filter);
+  const {error}=await q;
+  if(error)throw error;
+};
+async function dbU(table,data,onConflict){
+  return unwrap(sb.from(table).upsert(data,{onConflict}).select());
+}
+async function callRpc(fn,params={}){
+  return unwrap(sb.rpc(fn,params));
+}
+uploadImg = async function(file) {
+  const ext=file.name.split('.').pop().toLowerCase()||'jpg';
+  const name=`img_${Date.now()}_${Math.random().toString(36).slice(2,6)}.${ext}`;
+  const {error}=await sb.storage.from(STORAGE_BUCKET).upload(name,file,{contentType:file.type||'image/jpeg',upsert:true});
+  if(error)throw error;
+  return sb.storage.from(STORAGE_BUCKET).getPublicUrl(name).data.publicUrl;
+};
+
 // ── STATE ──
 let me=null,avatarDataUrl=null,newModalAvatar=null,isLoadingMessages=false,pollReady=false;
 let themeMode=localStorage.getItem('bundle-theme')||'system';
@@ -640,6 +729,9 @@ let pollTimer=null,ctxMsg=null;
 let muteUid=null,muteNick=null;
 let otpCode=null,otpData=null,otpMode=null,forgotUid=null;
 let attachFile=null,replyTo=null;
+var bgLastDMId=0,globalMessagesChannel=null,dmMessagesChannel=null,dmReadsChannel=null,onlineChannel=null;
+let dmChatsWriteAllowed=true,dmReadsWriteAllowed=true,dmOnlineTimer=null;
+let pendingDMOptimistic=[];
 
 // ── THEME ──
 function applyTheme(){
@@ -718,8 +810,7 @@ async function handleLogin(){
     const user=users[0];
     // Проверка пароля всегда на сервере через RPC (клиент не получает password_hash)
     const nickForCheck=isAdminUser(user.username)?ADMIN_NICK_LOWER:user.nickname;
-    const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/check_nick_password`,{method:'POST',headers:H,body:JSON.stringify({p_nick:nickForCheck,p_pass:pass})});
-    const ok=await r.json();
+    const ok=await callRpc('check_nick_password',{p_nick:nickForCheck,p_pass:pass});
     if(ok!==true){err.textContent='Неверный пароль';btn.disabled=false;btn.textContent='Войти';return;}
     if(!isAdmin(user.nickname)&&!isAdminUser(user.username)){
       if(user.email){
@@ -757,8 +848,7 @@ async function handleRegister(){
     const bu=await dbQ('bundle_users_public',{filter:`username=ilike.${encodeURIComponent(uname)}`,select:'id'});
     if(bu&&bu.length>0){err.textContent='@username занят';btn.disabled=false;btn.textContent='Создать аккаунт';return;}
     const uid='u_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
-    const _rres=await fetch(`${SUPABASE_URL}/rest/v1/rpc/register_user`,{method:'POST',headers:H,body:JSON.stringify({p_id:uid,p_nickname:nick,p_username:uname,p_email:null,p_avatar:avatarDataUrl||null,p_pass:pass})});
-    if(!_rres.ok)throw new Error(await _rres.text());
+    await callRpc('register_user',{p_id:uid,p_nickname:nick,p_username:uname,p_email:null,p_avatar:avatarDataUrl||null,p_pass:pass});
     me={id:uid,nickname:nick,username:uname,avatar:avatarDataUrl||null};
     await finishLogin();
   }catch(e){console.error(e);err.textContent='Ошибка подключения';}
@@ -780,8 +870,7 @@ async function verifyOtp(){
     if(otpMode==='register'){
       const d=otpData;
       const uid='u_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
-      const _orres=await fetch(`${SUPABASE_URL}/rest/v1/rpc/register_user`,{method:'POST',headers:H,body:JSON.stringify({p_id:uid,p_nickname:d.nick,p_username:d.username,p_email:d.email,p_avatar:d.avatar||null,p_pass:d.pass})});
-      if(!_orres.ok)throw new Error(await _orres.text());
+      await callRpc('register_user',{p_id:uid,p_nickname:d.nick,p_username:d.username,p_email:d.email,p_avatar:d.avatar||null,p_pass:d.pass});
       me={id:uid,nickname:d.nick,username:d.username,avatar:d.avatar||null};
       await finishLogin();
     } else if(otpMode==='login'){
@@ -834,10 +923,9 @@ async function handleReset(){
 // ── FINISH LOGIN ──
 async function finishLogin(){
   // Create server-side session token
-  const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/create_session`,{method:'POST',headers:H,body:JSON.stringify({p_user_id:me.id})});
-  const token=await r.json();
+  const token=await callRpc('create_session',{p_user_id:me.id});
   // last_seen обновляем через RPC — у anon нет прав на PATCH bundle_users напрямую
-  fetch(`${SUPABASE_URL}/rest/v1/rpc/update_last_seen`,{method:'POST',headers:H,body:JSON.stringify({p_user_id:me.id})}).catch(()=>{});
+  callRpc('update_last_seen',{p_user_id:me.id}).catch(()=>{});
   // Store only token in localStorage - NOT user id or data
   localStorage.setItem('bundle-session',token);
   localStorage.removeItem('bundle-user');
@@ -850,7 +938,7 @@ function logout(){document.getElementById('logoutModal').classList.add('show');}
 async function confirmLogout(){
   document.getElementById('logoutModal').classList.remove('show');
   const token=localStorage.getItem('bundle-session');
-  if(token){try{await fetch(`${SUPABASE_URL}/rest/v1/rpc/delete_session`,{method:'POST',headers:H,body:JSON.stringify({p_token:token})});}catch{}}
+  if(token){try{await callRpc('delete_session',{p_token:token});}catch{}}
   localStorage.removeItem('bundle-session');
   localStorage.removeItem('bundle-user');
   me=null;lastSenderId=null;lastDate=null;renderedIds.clear();
@@ -880,7 +968,7 @@ async function enterChat(){
   setTimeout(()=>{loadDMChats();cleanStaleDMs();}, 800);
   setInterval(updateOnline,30000);
   setInterval(()=>{if(document.visibilityState==='visible')markMessagesRead();},5000);
-  setInterval(()=>fetch(`${SUPABASE_URL}/rest/v1/rpc/update_last_seen`,{method:'POST',headers:H,body:JSON.stringify({p_user_id:me.id})}).catch(()=>{}),20000);
+  setInterval(()=>callRpc('update_last_seen',{p_user_id:me.id}).catch(()=>{}),20000);
   setInterval(checkMute,15000);
 }
 function updateSidebar(){
@@ -1126,14 +1214,15 @@ async function showCtxMenu(e,msg){
 function hideMsgMenu(){
   const menu=document.getElementById('msgMenu');
   menu.style.opacity='0';menu.style.transform='scale(0.95)';
-  setTimeout(()=>{menu.style.display='none';menu.style.opacity='';menu.style.transform='';},150);
-  ctxMsg=null;
+  setTimeout(()=>{menu.style.display='none';menu.style.opacity='';menu.style.transform='';ctxMsg=null;},150);
 }
 function ctxCopy(){if(!ctxMsg)return;navigator.clipboard.writeText(ctxMsg.content||ctxMsg.image_url||'').then(()=>showToast('Скопировано'));hideMsgMenu();}
 function ctxReply(){
-  if(!ctxMsg)return;hideMsgMenu();
-  replyTo=ctxMsg;
-  document.getElementById('replyNickLabel').textContent=ctxMsg.user_nickname||'';
+  if(!ctxMsg)return;
+  const msg=ctxMsg;
+  hideMsgMenu();
+  replyTo=msg;
+  document.getElementById('replyNickLabel').textContent=msg.user_nickname||msg.from_nick||msg.to_nick||'';
   document.getElementById('replyTextLabel').textContent=ctxMsg.content||'📷 Фото';
   document.getElementById('replyPreviewBar').classList.add('show');
   document.getElementById('msgInput').focus();
@@ -1197,7 +1286,7 @@ async function sendMessage(){
     if(res&&res[0]){if(res[0].id>lastMsgId)lastMsgId=res[0].id;renderMsg(res[0],true);}
   }catch{showToast('Не удалось отправить');inp.value=text;autoResize(inp);document.getElementById('sendBtn').disabled=!canSend();}
 }
-function handleKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}}
+function handleKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();window.sendMessage();}}
 function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,100)+'px';if(!isMuted())document.getElementById('sendBtn').disabled=!canSend();}
 
 // ── POLL ──
@@ -1232,8 +1321,7 @@ async function updateOnline(){
   localStorage.removeItem('bundle-user');
   if(token){
     try{
-      const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/verify_session`,{method:'POST',headers:H,body:JSON.stringify({p_token:token})});
-      const rows=await r.json();
+      const rows=await callRpc('verify_session',{p_token:token});
       if(rows&&rows.length>0){
         const u=rows[0];
         // Validate - must have password_hash or be admin
@@ -1246,7 +1334,7 @@ async function updateOnline(){
         me={id:u.user_id||rows[0].user_id,nickname:u.nickname,username:u.username,avatar:u.avatar,muted_until:u.muted_until,password_hash:u.password_hash,sessionToken:token};
         // Fix: verify_session returns user_id field
         if(!me.id){me.id=u.user_id;}
-        fetch(`${SUPABASE_URL}/rest/v1/rpc/update_last_seen`,{method:'POST',headers:H,body:JSON.stringify({p_user_id:me.id})}).catch(()=>{});
+        callRpc('update_last_seen',{p_user_id:me.id}).catch(()=>{});
         document.body.classList.remove('checking');
         enterChat();
       } else {
@@ -1387,12 +1475,13 @@ async function loadDMChats(){
 async function checkAllDMUnread(){
   if(!me)return;
   try{
-    const reads=await dbQ('bundle_dm_reads',{filter:`user_id=eq.${me.id}`,select:'peer_id,last_read_id'});
-    const readMap={};if(reads)reads.forEach(r=>readMap[r.peer_id]=r.last_read_id||0);
+    let reads=[];
+    try{reads=await dbQ('bundle_dm_reads',{filter:`user_id=eq.${me.id}`,select:'peer_id,last_read_id'});}catch(e){if(e?.code==='42501')dmReadsWriteAllowed=false;}
+    const readMap={};if(reads)reads.forEach(r=>readMap[r.peer_id]=Math.max(readMap[r.peer_id]||0,r.last_read_id||0));
     const items=document.querySelectorAll('#dmList .dm-item');
     for(const el of items){
       const uid=el.id.replace('dm-','');
-      const lastRead=readMap[uid]||0;
+      const lastRead=Math.max(readMap[uid]||0,getLocalDMRead(uid));
       const msgs=await dbQ('bundle_dms',{filter:`from_id=eq.${uid}&to_id=eq.${me.id}&id=gt.${lastRead}`,select:'id',limit:99});
       const count=msgs?msgs.length:0;
       dmUnread[uid]=count;
@@ -1622,6 +1711,7 @@ async function deleteDMChat(uid,e){
   }catch(e){console.error(e);}
   const el=document.getElementById('dm-'+uid);if(el)el.remove();
   delete dmUnread[uid];
+  clearLocalDMRead(uid);
   if(currentMode==='dm'&&currentDMUser&&currentDMUser.id===uid)switchToGlobal();
 }
 
@@ -1629,6 +1719,8 @@ async function deleteDMChat(uid,e){
 function switchToGlobal(){
   currentMode='global';currentDMUser=null;
   clearInterval(dmPollTimer);
+  if(dmOnlineTimer)clearInterval(dmOnlineTimer);
+  dmOnlineTimer=null;
   document.getElementById('globalChatItem').classList.add('active');
   document.querySelectorAll('.dm-item').forEach(el=>el.classList.remove('active'));
   document.getElementById('chatTopbarIcon').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
@@ -1664,6 +1756,422 @@ window.sendMessage=async function(){
   }
   return _origSendMessage();
 };
+
+// Realtime + SDK overrides
+function updateGlobalTicks(msgId, readCount){
+  const el=document.getElementById('ticks-'+msgId);
+  if(!el)return;
+  const isRead=(readCount||0)>0;
+  el.innerHTML=isRead
+    ?'<svg viewBox="0 0 18 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 5l3 3 6-6"/><path d="M7 5l3 3 6-6"/></svg>'
+    :'<svg viewBox="0 0 12 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 5l3 3 6-6"/></svg>';
+  el.className=isRead?'msg-ticks read':'msg-ticks';
+}
+function getDMSignature(msg){
+  return JSON.stringify([
+    msg?.from_id||'',
+    msg?.to_id||'',
+    msg?.content||'',
+    msg?.image_url||''
+  ]);
+}
+function addPendingOptimisticDM(tempMsg){
+  pendingDMOptimistic.push({
+    tempId:String(tempMsg.id),
+    signature:getDMSignature(tempMsg),
+    createdAt:Date.now()
+  });
+  pendingDMOptimistic=pendingDMOptimistic.slice(-30);
+}
+function consumePendingOptimisticDM(msg){
+  const signature=getDMSignature(msg);
+  const idx=pendingDMOptimistic.findIndex(item=>item.signature===signature&&Date.now()-item.createdAt<15000);
+  if(idx===-1)return false;
+  const [match]=pendingDMOptimistic.splice(idx,1);
+  const tempEl=document.querySelector(`[data-msg-id="${match.tempId}"]`);
+  if(tempEl)tempEl.remove();
+  dmRenderedIds.delete(match.tempId);
+  return true;
+}
+function dmReadStorageKey(peerId){
+  return `bundle-dm-read:${me?.id||'anon'}:${peerId}`;
+}
+function getLocalDMRead(peerId){
+  const v=Number(localStorage.getItem(dmReadStorageKey(peerId))||0);
+  return Number.isFinite(v)?v:0;
+}
+function setLocalDMRead(peerId,lastReadId){
+  if(!peerId)return;
+  const next=Math.max(getLocalDMRead(peerId),Number(lastReadId)||0);
+  localStorage.setItem(dmReadStorageKey(peerId),String(next));
+}
+function clearLocalDMRead(peerId){
+  localStorage.removeItem(dmReadStorageKey(peerId));
+}
+function updateDMTicks(lastReadId=0){
+  document.querySelectorAll('[id^="dm-ticks-"]').forEach(el=>{
+    const msgId=Number(el.id.replace('dm-ticks-',''));
+    const isRead=lastReadId>=msgId;
+    el.innerHTML=isRead
+      ?'<svg viewBox="0 0 18 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 5l3 3 6-6"/><path d="M7 5l3 3 6-6"/></svg>'
+      :'<svg viewBox="0 0 12 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 5l3 3 6-6"/></svg>';
+    el.className=isRead?'msg-ticks read':'msg-ticks';
+  });
+}
+function isUserOnlineNow(userId){
+  if(!onlineChannel||!userId)return false;
+  const state=onlineChannel.presenceState();
+  return Object.values(state).some(entries=>Array.isArray(entries)&&entries.some(item=>item.user_id===userId));
+}
+function updateDMHeaderPresence(){
+  if(currentMode!=='dm'||!currentDMUser)return;
+  const parts=[];
+  if(currentDMUser.username)parts.push('@'+currentDMUser.username);
+  parts.push(isUserOnlineNow(currentDMUser.id)?'онлайн':'не в сети');
+  document.getElementById('chatTopbarSub').textContent=parts.join(' • ');
+}
+async function refreshDMHeaderPresence(){
+  if(currentMode!=='dm'||!currentDMUser)return;
+  let online=isUserOnlineNow(currentDMUser.id);
+  try{
+    const rows=await dbQ('bundle_users_public',{filter:`id=eq.${currentDMUser.id}`,select:'last_seen',limit:1});
+    const lastSeen=rows?.[0]?.last_seen;
+    if(lastSeen){
+      online = online || (Date.now()-new Date(lastSeen).getTime()<65000);
+    }
+  }catch{}
+  const parts=[];
+  if(currentDMUser.username)parts.push('@'+currentDMUser.username);
+  parts.push(online?'онлайн':'не в сети');
+  document.getElementById('chatTopbarSub').textContent=parts.join(' • ');
+}
+function updatePresenceUI(){
+  if(currentMode==='global'&&onlineChannel){
+    const state=onlineChannel.presenceState();
+    const ids=new Set();
+    Object.values(state).forEach(entries=>{
+      (entries||[]).forEach(item=>{ if(item.user_id) ids.add(item.user_id); });
+    });
+    document.getElementById('onlineCount').textContent=Math.max(ids.size, me?1:0);
+  }
+  refreshDMHeaderPresence();
+}
+function clearRealtime(){
+  [globalMessagesChannel,dmMessagesChannel,dmReadsChannel,onlineChannel].forEach(ch=>{
+    if(ch)sb.removeChannel(ch).catch(()=>{});
+  });
+  globalMessagesChannel=null;
+  dmMessagesChannel=null;
+  dmReadsChannel=null;
+  onlineChannel=null;
+}
+async function syncDMChatRecord(userId,target){
+  if(!userId||!target?.id)return;
+  if(!dmChatsWriteAllowed)return;
+  try{
+    await dbU('bundle_dm_chats',{
+      user_id:userId,
+      peer_id:target.id,
+      peer_nick:target.nickname||'',
+      peer_username:target.username||'',
+      peer_avatar:target.avatar||null
+    },'user_id,peer_id');
+  }catch(e){
+    if(e?.code==='42501')dmChatsWriteAllowed=false;
+  }
+}
+async function syncDMChatPair(target){
+  if(!me||!target?.id)return;
+  await Promise.all([
+    syncDMChatRecord(me.id,target),
+    syncDMChatRecord(target.id,{id:me.id,nickname:me.nickname,username:me.username||'',avatar:me.avatar||null})
+  ]);
+}
+function ensureDMListItem(target){
+  let dmEl=document.getElementById('dm-'+target.id);
+  if(!dmEl){
+    dmEl=buildDMItem(target);
+    document.getElementById('dmList').appendChild(dmEl);
+  }
+  return dmEl;
+}
+async function markDMConversationRead(target,lastId){
+  if(!me||!target?.id||!lastId)return;
+  setLocalDMRead(target.id,lastId);
+  try{
+    if(dmReadsWriteAllowed){
+      await dbU('bundle_dm_reads',{user_id:me.id,peer_id:target.id,last_read_id:lastId},'user_id,peer_id');
+    }
+  }catch(e){
+    if(e?.code==='42501')dmReadsWriteAllowed=false;
+  }
+  if(currentMode==='dm'&&currentDMUser?.id===target.id){
+    dmUnread[target.id]=0;
+    showDMBadge(target.id,0);
+  }
+}
+async function refreshCurrentDMReadState(){
+  if(!me||!currentDMUser)return;
+  try{
+    const rows=await dbQ('bundle_dm_reads',{filter:`user_id=eq.${currentDMUser.id}&peer_id=eq.${me.id}`,select:'last_read_id',limit:1});
+    updateDMTicks(rows?.[0]?.last_read_id||0);
+  }catch{
+    updateDMTicks(0);
+  }
+}
+function subscribeRealtime(){
+  if(!me)return;
+  clearRealtime();
+  globalMessagesChannel=sb.channel('bundle-global');
+  globalMessagesChannel
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'bundle_messages'},payload=>{
+      const msg=payload.new;
+      if(msg?.id>lastMsgId)lastMsgId=msg.id;
+      if(currentMode==='global'){
+        renderMsg(msg,true);
+        if(msg.user_id!==me.id&&document.visibilityState==='visible')markMessagesRead();
+      }
+    })
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'bundle_messages'},payload=>{
+      updateGlobalTicks(payload.new.id,payload.new.read_count);
+    })
+    .subscribe();
+  dmMessagesChannel=sb.channel('bundle-dms-live');
+  dmMessagesChannel
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'bundle_dms'},payload=>{
+      const msg=payload.new;
+      if(!me||!msg)return;
+      if(msg.from_id!==me.id&&msg.to_id!==me.id)return;
+      if(msg.from_id===me.id)consumePendingOptimisticDM(msg);
+      const peerId=msg.from_id===me.id?msg.to_id:msg.from_id;
+      const peer=peerId===currentDMUser?.id
+        ? currentDMUser
+        : {id:peerId,nickname:msg.from_id===me.id?(msg.to_nick||'Личный чат'):(msg.from_nick||'Личный чат'),username:'',avatar:null};
+      ensureDMListItem(peer);
+      if(msg.id>bgLastDMId)bgLastDMId=msg.id;
+      if(msg.id>dmLastMsgId&&(currentMode==='dm'&&currentDMUser?.id===peerId))dmLastMsgId=msg.id;
+      if(currentMode==='dm'&&currentDMUser?.id===peerId){
+        renderDMMsg(msg,true);
+        if(msg.to_id===me.id)markDMConversationRead(peer,msg.id);
+      }else if(msg.to_id===me.id){
+        dmUnread[peerId]=(dmUnread[peerId]||0)+1;
+        showDMBadge(peerId,dmUnread[peerId]);
+      }
+    })
+    .subscribe();
+  dmReadsChannel=sb.channel('bundle-dm-reads-live');
+  dmReadsChannel
+    .on('postgres_changes',{event:'*',schema:'public',table:'bundle_dm_reads'},payload=>{
+      const row=payload.new||payload.old;
+      if(!row||!me)return;
+      if(currentDMUser&&row.user_id===currentDMUser.id&&row.peer_id===me.id){
+        updateDMTicks(row.last_read_id||0);
+      }
+    })
+    .subscribe();
+  onlineChannel=sb.channel('bundle-online',{config:{presence:{key:me.id}}});
+  onlineChannel
+    .on('presence',{event:'sync'},()=>updatePresenceUI())
+    .on('presence',{event:'join'},()=>updatePresenceUI())
+    .on('presence',{event:'leave'},()=>updatePresenceUI())
+    .subscribe(async status=>{
+      if(status==='SUBSCRIBED'){
+        await onlineChannel.track({user_id:me.id,nickname:me.nickname,online_at:new Date().toISOString()});
+        updatePresenceUI();
+      }
+    });
+}
+
+updateOnline = async function(){
+  updatePresenceUI();
+  try{
+    const since=new Date(Date.now()-60000).toISOString();
+    const u=await dbQ('bundle_users_public',{filter:`last_seen=gte.${since}`,select:'id'});
+    if(currentMode==='global')document.getElementById('onlineCount').textContent=Array.isArray(u)?Math.max(u.length,1):1;
+    if(currentMode==='dm')await refreshDMHeaderPresence();
+  }catch{}
+};
+markMessagesRead = async function(){
+  if(!me||currentMode!=='global'||document.visibilityState!=='visible')return;
+  try{
+    const msgs=await dbQ('bundle_messages',{filter:`user_id=neq.${me.id}`,select:'id',order:'id.desc',limit:30});
+    await Promise.all((msgs||[]).map(m=>callRpc('increment_read_count',{p_msg_id:m.id,p_user_id:me.id}).catch(()=>{})));
+  }catch{}
+};
+updateVisibleCheckmarks = async function(){
+  try{
+    const myMsgs=await dbQ('bundle_messages',{filter:`user_id=eq.${me.id}`,select:'id,read_count',order:'id.desc',limit:50});
+    (myMsgs||[]).forEach(m=>updateGlobalTicks(m.id,m.read_count));
+  }catch{}
+};
+handleReset = async function(){
+  const p1=document.getElementById('newPass').value,p2=document.getElementById('newPass2').value;
+  const err=document.getElementById('resetErr');err.textContent='';
+  if(!p1||p1.length<4){err.textContent='Пароль минимум 4 символа';return;}
+  if(p1!==p2){err.textContent='Пароли не совпадают';return;}
+  const btn=document.getElementById('resetBtn');btn.disabled=true;btn.textContent='Сохраняем...';
+  try{await callRpc('reset_password',{p_user_id:forgotUid,p_pass:p1});showToast('Пароль изменён!');switchTab('login');}
+  catch{err.textContent='Ошибка сохранения';}
+  btn.disabled=false;btn.textContent='Сохранить пароль';
+};
+loadDMChats = async function(){
+  if(!me)return;
+  try{
+    const [saved,sent,received]=await Promise.all([
+      dbQ('bundle_dm_chats',{filter:`user_id=eq.${me.id}`,select:'peer_id'}),
+      dbQ('bundle_dms',{filter:`from_id=eq.${me.id}`,select:'to_id',order:'id.desc',limit:200}),
+      dbQ('bundle_dms',{filter:`to_id=eq.${me.id}`,select:'from_id',order:'id.desc',limit:200})
+    ]);
+    const ids=new Set();
+    (saved||[]).forEach(row=>row.peer_id&&ids.add(row.peer_id));
+    (sent||[]).forEach(row=>row.to_id&&ids.add(row.to_id));
+    (received||[]).forEach(row=>row.from_id&&ids.add(row.from_id));
+    if(!ids.size)return;
+    const users=await dbQ('bundle_users_public',{filter:`id=in.(${[...ids].join(',')})`,select:'id,nickname,username,avatar'});
+    (users||[]).forEach(u=>ensureDMListItem({id:u.id,nickname:u.nickname,username:u.username||'',avatar:u.avatar||null}));
+    checkAllDMUnread();
+  }catch(e){console.error('loadDMChats:',e);}
+};
+startBgDMPoll = async function(){
+  if(bgDMPoll)clearInterval(bgDMPoll);
+  try{
+    const latest=await dbQ('bundle_dms',{filter:`to_id=eq.${me.id}`,select:'id',order:'id.desc',limit:1});
+    bgLastDMId=latest?.[0]?.id||bgLastDMId||0;
+  }catch{}
+  bgDMPoll=setInterval(async()=>{
+    if(!me)return;
+    try{
+      const msgs=await dbQ('bundle_dms',{filter:`to_id=eq.${me.id}&id=gt.${bgLastDMId}`,select:'*',order:'id.asc',limit:50});
+      for(const m of msgs||[]){
+        bgLastDMId=Math.max(bgLastDMId,m.id||0);
+        if(currentMode==='dm'&&currentDMUser?.id===m.from_id){
+          renderDMMsg(m,true);
+          await markDMConversationRead(currentDMUser,m.id);
+          continue;
+        }
+        dmUnread[m.from_id]=(dmUnread[m.from_id]||0)+1;
+        showDMBadge(m.from_id,dmUnread[m.from_id]);
+      }
+    }catch{}
+  },15000);
+};
+openDMChat = async function(target){
+  currentMode='dm';
+  currentDMUser=target;
+  closeSidebar();
+  clearInterval(dmPollTimer);
+  dmUnread[target.id]=0;
+  showDMBadge(target.id,0);
+  const g=dmGrad(target.id);
+  document.getElementById('chatTopbarIcon').innerHTML=`<div class="dm-avatar av-grad-${g}" style="width:34px;height:34px;font-size:13px;font-weight:700;color:#fff;display:flex;align-items:center;justify-content:center;border-radius:50%">${target.avatar?`<img src="${target.avatar}" style="width:34px;height:34px;border-radius:50%;object-fit:cover">`:(target.nickname||'?')[0].toUpperCase()}</div>`;
+  document.getElementById('chatTopbarTitle').textContent=target.nickname;
+  document.getElementById('globalChatItem').classList.remove('active');
+  document.querySelectorAll('.dm-item').forEach(el=>el.classList.remove('active'));
+  ensureDMListItem(target).classList.add('active');
+  updateDMHeaderPresence();
+  if(dmOnlineTimer)clearInterval(dmOnlineTimer);
+  dmOnlineTimer=setInterval(()=>refreshDMHeaderPresence(),10000);
+  await syncDMChatPair(target);
+  dmRenderedIds.clear();lastSenderId=null;lastDate=null;dmLastMsgId=0;
+  await loadDMMessages(target);
+  try{
+    const latest=await dbQ('bundle_dms',{filter:`from_id=eq.${target.id}&to_id=eq.${me.id}`,select:'id',order:'id.desc',limit:1});
+    await markDMConversationRead(target,latest?.[0]?.id||0);
+  }catch{}
+  await refreshCurrentDMReadState();
+  dmPollTimer=setInterval(()=>pollDM(target),12000);
+};
+pollDM = async function(target){
+  if(!me||!target)return;
+  try{
+    const [sent,recv]=await Promise.all([
+      dbQ('bundle_dms',{filter:`from_id=eq.${me.id}&to_id=eq.${target.id}&id=gt.${dmLastMsgId}`,select:'*',order:'id.asc',limit:30}),
+      dbQ('bundle_dms',{filter:`from_id=eq.${target.id}&to_id=eq.${me.id}&id=gt.${dmLastMsgId}`,select:'*',order:'id.asc',limit:30})
+    ]);
+    const msgs=[...(sent||[]),...(recv||[])].sort((a,b)=>a.id-b.id);
+    if(msgs.length){
+      msgs.forEach(m=>{if(m.id>dmLastMsgId)dmLastMsgId=m.id;renderDMMsg(m,true);});
+      const lastIncoming=[...msgs].reverse().find(m=>m.to_id===me.id);
+      if(lastIncoming)await markDMConversationRead(target,lastIncoming.id);
+      await refreshCurrentDMReadState();
+    }
+  }catch{}
+};
+const _sdkSendMessage=window.sendMessage;
+window.sendMessage=async function(){
+  if(currentMode==='dm'&&currentDMUser){
+    if(isMuted()){showToast('Ты замьючен');return;}
+    const inp=document.getElementById('msgInput');
+    const text=inp.value.trim();
+    if(!text&&!attachFile)return;
+    if(!me)return;
+    const target=currentDMUser;
+    const optimisticText=text;
+    inp.value='';autoResize(inp);
+    document.getElementById('sendBtn').disabled=true;
+    try{
+      let imgUrl=null;
+      if(attachFile){
+        showToast('Загружаем фото...');
+        try{imgUrl=await uploadImg(attachFile);}catch(e){showToast('Ошибка загрузки фото');inp.value=optimisticText;autoResize(inp);document.getElementById('sendBtn').disabled=!canSend();return;}
+        clearImgAttach();
+      }
+      const tempMsg={
+        id:`tmp_${Date.now()}_${Math.random().toString(36).slice(2,6)}`,
+        from_id:me.id,
+        to_id:target.id,
+        from_nick:me.nickname,
+        to_nick:target.nickname,
+        content:optimisticText||null,
+        image_url:imgUrl||null,
+        read:false,
+        file_name:null,
+        created_at:new Date().toISOString()
+      };
+      addPendingOptimisticDM(tempMsg);
+      renderDMMsg(tempMsg,true);
+      await syncDMChatPair(target);
+      const payload={from_id:me.id,to_id:target.id,from_nick:me.nickname,to_nick:target.nickname,content:optimisticText||null,image_url:imgUrl||null,read:false,file_name:null};
+      const {error}=await sb.from('bundle_dms').insert(payload);
+      if(error)throw error;
+    }catch(e){
+      console.error('dm send error:',e);
+      if(pendingDMOptimistic.length){
+        const lastPending=pendingDMOptimistic[pendingDMOptimistic.length-1];
+        const tempEl=lastPending&&document.querySelector(`[data-msg-id="${lastPending.tempId}"]`);
+        if(tempEl)tempEl.remove();
+        if(lastPending)dmRenderedIds.delete(lastPending.tempId);
+        pendingDMOptimistic=pendingDMOptimistic.filter(item=>item!==lastPending);
+      }
+      if(e?.code==='42703'&&String(e.message||'').includes('user_id')) showToast('Ошибка SQL: в bundle_dms trigger ждёт user_id');
+      else showToast('Не удалось отправить');
+      inp.value=optimisticText;
+      autoResize(inp);
+    }
+    document.getElementById('sendBtn').disabled=!canSend();
+    return;
+  }
+  const result=await _sdkSendMessage();
+  if(currentMode==='dm'&&currentDMUser){
+    await refreshCurrentDMReadState();
+  }
+  return result;
+};
+const _enterChat=enterChat;
+enterChat=async function(){
+  await _enterChat();
+  subscribeRealtime();
+};
+const _confirmLogout=confirmLogout;
+confirmLogout=async function(){
+  clearRealtime();
+  if(dmOnlineTimer)clearInterval(dmOnlineTimer);
+  dmOnlineTimer=null;
+  return _confirmLogout();
+};
+if(document.getElementById('chatScreen').classList.contains('active')&&me){
+  subscribeRealtime();
+}
 </script>
 </body>
 </html>
