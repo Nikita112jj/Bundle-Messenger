@@ -712,16 +712,16 @@ async function handleLogin(){
     const isHandle=raw.startsWith('@');
     const search=isHandle?raw.slice(1):raw;
     const filter=isHandle?`username=ilike.${encodeURIComponent(search)}`:`nickname=ilike.${encodeURIComponent(search)}`;
-    const users=await dbQ('bundle_users',{filter,select:'id,nickname,username,avatar,password_hash,email,muted_until'});
+    // ⚠️ Используем bundle_users_public — без password_hash
+    const users=await dbQ('bundle_users_public',{filter,select:'id,nickname,username,avatar,email,muted_until'});
     if(!users||users.length===0){err.textContent='Аккаунт не найден — зарегистрируйся!';btn.disabled=false;btn.textContent='Войти';return;}
     const user=users[0];
-    if(isAdmin(user.nickname)||isAdminUser(user.username)){
-      const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/check_nick_password`,{method:'POST',headers:H,body:JSON.stringify({p_nick:ADMIN_NICK_LOWER,p_pass:pass})});
-      const ok=await r.json();
-      if(ok!==true){err.textContent='Неверный пароль';btn.disabled=false;btn.textContent='Войти';return;}
-      me=user;await finishLogin();
-    } else {
-      if(user.password_hash!==hashP(pass)){err.textContent='Неверный пароль';btn.disabled=false;btn.textContent='Войти';return;}
+    // Проверка пароля всегда на сервере через RPC (клиент не получает password_hash)
+    const nickForCheck=isAdminUser(user.username)?ADMIN_NICK_LOWER:user.nickname;
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/check_nick_password`,{method:'POST',headers:H,body:JSON.stringify({p_nick:nickForCheck,p_pass:pass})});
+    const ok=await r.json();
+    if(ok!==true){err.textContent='Неверный пароль';btn.disabled=false;btn.textContent='Войти';return;}
+    if(!isAdmin(user.nickname)&&!isAdminUser(user.username)){
       if(user.email){
         const code=genCode();otpCode=code;otpData=user;otpMode='login';
         try{await sendOtp(user.email,code,user.nickname);}catch(e){console.warn(e);showToast('Не удалось отправить email',4000);}
@@ -730,6 +730,8 @@ async function handleLogin(){
         document.getElementById('otpSubtitle').innerHTML=`Отправили код на<br><strong>${user.email}</strong>`;
         clearOtpBoxes();switchTab('otp');
       } else {me=user;await finishLogin();}
+    } else {
+      me=user;await finishLogin();
     }
   }catch(e){console.error(e);err.textContent='Ошибка подключения';}
   btn.disabled=false;btn.textContent='Войти';
