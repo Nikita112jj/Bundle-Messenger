@@ -752,13 +752,14 @@ async function handleRegister(){
   if(pass!==pass2){err.textContent='Пароли не совпадают';return;}
   const btn=document.getElementById('registerBtn');btn.disabled=true;btn.textContent='Проверяем...';
   try{
-    const bn=await dbQ('bundle_users',{filter:`nickname=ilike.${encodeURIComponent(nick)}`,select:'id'});
+    const bn=await dbQ('bundle_users_public',{filter:`nickname=ilike.${encodeURIComponent(nick)}`,select:'id'});
     if(bn&&bn.length>0){err.textContent='Никнейм занят';btn.disabled=false;btn.textContent='Создать аккаунт';return;}
-    const bu=await dbQ('bundle_users',{filter:`username=ilike.${encodeURIComponent(uname)}`,select:'id'});
+    const bu=await dbQ('bundle_users_public',{filter:`username=ilike.${encodeURIComponent(uname)}`,select:'id'});
     if(bu&&bu.length>0){err.textContent='@username занят';btn.disabled=false;btn.textContent='Создать аккаунт';return;}
     const uid='u_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
-    const res=await dbI('bundle_users',{id:uid,nickname:nick,username:uname,email:null,avatar:avatarDataUrl||null,password_hash:hashP(pass),last_seen:new Date().toISOString()});
-    me=res[0]||{id:uid,nickname:nick,username:uname,avatar:avatarDataUrl||null};
+    const _rres=await fetch(`${SUPABASE_URL}/rest/v1/rpc/register_user`,{method:'POST',headers:H,body:JSON.stringify({p_id:uid,p_nickname:nick,p_username:uname,p_email:null,p_avatar:avatarDataUrl||null,p_pass:pass})});
+    if(!_rres.ok)throw new Error(await _rres.text());
+    me={id:uid,nickname:nick,username:uname,avatar:avatarDataUrl||null};
     await finishLogin();
   }catch(e){console.error(e);err.textContent='Ошибка подключения';}
   btn.disabled=false;btn.textContent='Создать аккаунт';
@@ -779,8 +780,9 @@ async function verifyOtp(){
     if(otpMode==='register'){
       const d=otpData;
       const uid='u_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
-      const res=await dbI('bundle_users',{id:uid,nickname:d.nick,username:d.username,email:d.email,avatar:d.avatar||null,password_hash:d.passHash,last_seen:new Date().toISOString()});
-      me=res[0]||{id:uid,nickname:d.nick,username:d.username,avatar:d.avatar||null};
+      const _orres=await fetch(`${SUPABASE_URL}/rest/v1/rpc/register_user`,{method:'POST',headers:H,body:JSON.stringify({p_id:uid,p_nickname:d.nick,p_username:d.username,p_email:d.email,p_avatar:d.avatar||null,p_pass:d.pass})});
+      if(!_orres.ok)throw new Error(await _orres.text());
+      me={id:uid,nickname:d.nick,username:d.username,avatar:d.avatar||null};
       await finishLogin();
     } else if(otpMode==='login'){
       me=otpData;await finishLogin();
@@ -806,7 +808,7 @@ async function handleForgot(){
   if(!email.includes('@')){err.textContent='Введи корректный email';return;}
   const btn=document.getElementById('forgotBtn');btn.disabled=true;btn.textContent='Отправляем...';
   try{
-    const users=await dbQ('bundle_users',{filter:`email=eq.${encodeURIComponent(email)}`,select:'id,nickname,email'});
+    const users=await dbQ('bundle_users_public',{filter:`email=eq.${encodeURIComponent(email)}`,select:'id,nickname,email'});
     if(!users||users.length===0){err.textContent='Email не найден';btn.disabled=false;btn.textContent='Получить код';return;}
     const user=users[0];forgotUid=user.id;
     const code=genCode();otpCode=code;otpData=user;otpMode='forgot';
@@ -824,7 +826,7 @@ async function handleReset(){
   if(!p1||p1.length<4){err.textContent='Пароль минимум 4 символа';return;}
   if(p1!==p2){err.textContent='Пароли не совпадают';return;}
   const btn=document.getElementById('resetBtn');btn.disabled=true;btn.textContent='Сохраняем...';
-  try{await dbP('bundle_users',`id=eq.${forgotUid}`,{password_hash:hashP(p1)});showToast('Пароль изменён!');switchTab('login');}
+  try{const _rr=await fetch(`${SUPABASE_URL}/rest/v1/rpc/reset_password`,{method:'POST',headers:H,body:JSON.stringify({p_user_id:forgotUid,p_pass:p1})});if(!_rr.ok)throw new Error();showToast('Пароль изменён!');switchTab('login');}
   catch{err.textContent='Ошибка сохранения';}
   btn.disabled=false;btn.textContent='Сохранить пароль';
 }
@@ -834,7 +836,8 @@ async function finishLogin(){
   // Create server-side session token
   const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/create_session`,{method:'POST',headers:H,body:JSON.stringify({p_user_id:me.id})});
   const token=await r.json();
-  await dbP('bundle_users',`id=eq.${me.id}`,{last_seen:new Date().toISOString()});
+  // last_seen обновляем через RPC — у anon нет прав на PATCH bundle_users напрямую
+  fetch(`${SUPABASE_URL}/rest/v1/rpc/update_last_seen`,{method:'POST',headers:H,body:JSON.stringify({p_user_id:me.id})}).catch(()=>{});
   // Store only token in localStorage - NOT user id or data
   localStorage.setItem('bundle-session',token);
   localStorage.removeItem('bundle-user');
@@ -877,7 +880,7 @@ async function enterChat(){
   setTimeout(()=>{loadDMChats();cleanStaleDMs();}, 800);
   setInterval(updateOnline,30000);
   setInterval(()=>{if(document.visibilityState==='visible')markMessagesRead();},5000);
-  setInterval(()=>dbP('bundle_users',`id=eq.${me.id}`,{last_seen:new Date().toISOString()}).catch(()=>{}),20000);
+  setInterval(()=>fetch(`${SUPABASE_URL}/rest/v1/rpc/update_last_seen`,{method:'POST',headers:H,body:JSON.stringify({p_user_id:me.id})}).catch(()=>{}),20000);
   setInterval(checkMute,15000);
 }
 function updateSidebar(){
@@ -934,7 +937,7 @@ function clearImgAttach(){attachFile=null;document.getElementById('imgPreviewBar
 const isMuted=()=>me&&me.muted_until&&new Date(me.muted_until)>new Date();
 async function checkMute(){
   if(!me)return;
-  try{const f=await dbQ('bundle_users',{filter:`id=eq.${me.id}`,select:'muted_until'});if(f&&f[0]){me.muted_until=f[0].muted_until;localStorage.setItem('bundle-user',JSON.stringify(me));}}catch{}
+  try{const f=await dbQ('bundle_users_public',{filter:`id=eq.${me.id}`,select:'muted_until'});if(f&&f[0]){me.muted_until=f[0].muted_until;localStorage.setItem('bundle-user',JSON.stringify(me));}}catch{}
   const muted=isMuted();
   document.getElementById('mutedBanner').style.display=muted?'block':'none';
   const inp=document.getElementById('msgInput');
@@ -964,7 +967,7 @@ function openAvatarModal(){newModalAvatar=null;const p=document.getElementById('
 function closeAvatarModal(){document.getElementById('avatarModal').classList.remove('show');newModalAvatar=null;}
 document.getElementById('avatarModal').addEventListener('click',e=>{if(e.target===document.getElementById('avatarModal'))closeAvatarModal();});
 document.getElementById('modalAvatarInput').addEventListener('change',function(){const f=this.files[0];if(!f)return;const r=new FileReader();r.onload=async e=>{newModalAvatar=await cropCircle(e.target.result);document.getElementById('modalAvatarPreview').innerHTML=`<img src="${newModalAvatar}">`;};r.readAsDataURL(f);});
-async function saveAvatar(){if(!newModalAvatar){closeAvatarModal();return;}const btn=document.getElementById('saveAvatarBtn');btn.disabled=true;btn.textContent='Сохраняем...';try{await dbP('bundle_users',`id=eq.${me.id}`,{avatar:newModalAvatar});me.avatar=newModalAvatar;localStorage.setItem('bundle-user',JSON.stringify(me));updateSidebar();closeAvatarModal();showToast('Аватар обновлён!');}catch{showToast('Ошибка');}btn.disabled=false;btn.textContent='Сохранить';}
+async function saveAvatar(){if(!newModalAvatar){closeAvatarModal();return;}const btn=document.getElementById('saveAvatarBtn');btn.disabled=true;btn.textContent='Сохраняем...';try{const _ar=await fetch(`${SUPABASE_URL}/rest/v1/rpc/update_avatar`,{method:'POST',headers:H,body:JSON.stringify({p_user_id:me.id,p_avatar:newModalAvatar})});if(!_ar.ok)throw new Error();me.avatar=newModalAvatar;updateSidebar();closeAvatarModal();showToast('Аватар обновлён!');}catch{showToast('Ошибка');}btn.disabled=false;btn.textContent='Сохранить';}
 
 // ── ADMIN ──
 function toggleAdminMenu(){document.getElementById('adminActionsMenu').classList.toggle('open');}
@@ -1108,7 +1111,7 @@ async function showCtxMenu(e,msg){
   document.getElementById('ctxDelBtn').style.display=(own||amAdm)?'flex':'none';
   let targetMuted=false;
   if(amAdm&&!own&&!tgAdm&&!isDM){
-    try{const u=await dbQ('bundle_users',{filter:`id=eq.${msg.user_id}`,select:'muted_until'});
+    try{const u=await dbQ('bundle_users_public',{filter:`id=eq.${msg.user_id}`,select:'muted_until'});
       targetMuted=u&&u[0]&&u[0].muted_until&&new Date(u[0].muted_until)>new Date();}catch{}
   }
   document.getElementById('ctxMuteBtn').style.display=(amAdm&&!own&&!tgAdm&&!targetMuted&&!isDM)?'flex':'none';
@@ -1219,7 +1222,7 @@ async function onVis(){
 
 // ── ONLINE ──
 async function updateOnline(){
-  try{const since=new Date(Date.now()-60000).toISOString();const u=await dbQ('bundle_users',{filter:`last_seen=gte.${since}`,select:'id'});document.getElementById('onlineCount').textContent=Array.isArray(u)?Math.max(u.length,1):1;}catch{}
+  try{const since=new Date(Date.now()-60000).toISOString();const u=await dbQ('bundle_users_public',{filter:`last_seen=gte.${since}`,select:'id'});document.getElementById('onlineCount').textContent=Array.isArray(u)?Math.max(u.length,1):1;}catch{}
 }
 
 // ── AUTO LOGIN ──
@@ -1243,7 +1246,7 @@ async function updateOnline(){
         me={id:u.user_id||rows[0].user_id,nickname:u.nickname,username:u.username,avatar:u.avatar,muted_until:u.muted_until,password_hash:u.password_hash,sessionToken:token};
         // Fix: verify_session returns user_id field
         if(!me.id){me.id=u.user_id;}
-        await dbP('bundle_users',`id=eq.${me.id}`,{last_seen:new Date().toISOString()});
+        fetch(`${SUPABASE_URL}/rest/v1/rpc/update_last_seen`,{method:'POST',headers:H,body:JSON.stringify({p_user_id:me.id})}).catch(()=>{});
         document.body.classList.remove('checking');
         enterChat();
       } else {
@@ -1367,7 +1370,7 @@ async function loadDMChats(){
     if(!chats||!chats.length)return;
     // Fetch fresh user data
     const ids=chats.map(c=>c.peer_id);
-    const users=await dbQ('bundle_users',{filter:`id=in.(${ids.join(',')})`,select:'id,nickname,username,avatar'});
+    const users=await dbQ('bundle_users_public',{filter:`id=in.(${ids.join(',')})`,select:'id,nickname,username,avatar'});
     const umap={};if(users)users.forEach(u=>umap[u.id]=u);
     for(const c of chats){
       if(document.getElementById('dm-'+c.peer_id))continue;
@@ -1405,7 +1408,7 @@ async function cleanStaleDMs(){
     const items=document.querySelectorAll('#dmList .dm-item');
     for(const el of items){
       const uid=el.id.replace('dm-','');
-      const u=await dbQ('bundle_users',{filter:`id=eq.${uid}`,select:'id'});
+      const u=await dbQ('bundle_users_public',{filter:`id=eq.${uid}`,select:'id'});
       if(!u||!u.length)el.remove();
     }
   }catch{}
@@ -1425,7 +1428,7 @@ async function startBgDMPoll(){
         dmUnread[m.from_id]=(dmUnread[m.from_id]||0)+1;
         // Add to sidebar if not exists
         if(!document.getElementById('dm-'+m.from_id)){
-          dbQ('bundle_users',{filter:`id=eq.${m.from_id}`,select:'id,nickname,username,avatar'}).then(u=>{
+          dbQ('bundle_users_public',{filter:`id=eq.${m.from_id}`,select:'id,nickname,username,avatar'}).then(u=>{
             if(!u||!u.length)return;
             const target={id:m.from_id,nickname:u[0].nickname,username:u[0].username||'',avatar:u[0].avatar||null};
             document.getElementById('dmList').appendChild(buildDMItem(target));
@@ -1458,7 +1461,7 @@ async function startDM(){
   if(uname===me.username){err.textContent='Нельзя писать себе';return;}
   const btn=document.getElementById('dmStartBtn');btn.disabled=true;btn.textContent='Ищем...';
   try{
-    const users=await dbQ('bundle_users',{filter:`username=ilike.${encodeURIComponent(uname)}`,select:'id,nickname,username,avatar'});
+    const users=await dbQ('bundle_users_public',{filter:`username=ilike.${encodeURIComponent(uname)}`,select:'id,nickname,username,avatar'});
     if(!users||!users.length){err.textContent='Пользователь не найден';btn.disabled=false;btn.textContent='Открыть чат';return;}
     if(!users[0].username){err.textContent='У пользователя нет @username';btn.disabled=false;btn.textContent='Открыть чат';return;}
     closeNewDM();
