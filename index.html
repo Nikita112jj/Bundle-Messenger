@@ -3399,6 +3399,8 @@ window.sendMessage=async function(){
     const text=inp.value.trim();
     if(!text&&!attachFile)return;
     if(!me)return;
+    const replySnapshot=replyTo?{...replyTo}:null;
+    if(replySnapshot)cancelReply();
     const pendingUploadCleanup=attachFile
       ? (isImageFile(attachFile)?showPendingImageUpload(attachFile,text):showPendingMessage(text,attachFile))
       : showPendingMessage(text,null);
@@ -3408,7 +3410,13 @@ window.sendMessage=async function(){
     document.getElementById('sendBtn').disabled=true;
     try{
       const prepared=await prepareAttachmentMessage(backupText);
-      const rows=asArray(await callRpc('bundle_secure_send_dm_message',{p_token:getSessionToken(),p_peer_public_id:currentDMUser.id,p_content:prepared.content,p_image_url:prepared.imageUrl,p_reply_to_public_id:replySnapshot?.id||null,p_reply_to_nick:replySnapshot?.user_nickname||replySnapshot?.from_nick||replySnapshot?.to_nick||null,p_reply_to_text:replySnapshot?(replySnapshot.content||'📷 Фото'):null}));
+      const dmPayload={p_token:getSessionToken(),p_peer_public_id:currentDMUser.id,p_content:prepared.content,p_image_url:prepared.imageUrl};
+      if(replySnapshot){
+        dmPayload.p_reply_to_public_id=replySnapshot.id||null;
+        dmPayload.p_reply_to_nick=replySnapshot.user_nickname||replySnapshot.from_nick||replySnapshot.to_nick||null;
+        dmPayload.p_reply_to_text=replySnapshot.content||'📷 Фото';
+      }
+      const rows=asArray(await callRpc('bundle_secure_send_dm_message',dmPayload));
       if(rows[0])renderDMMsg(mapSecureDM(rows[0]),true);
       const pendingLeft=380-(Date.now()-pendingShownAt);
       if(pendingLeft>0)await new Promise(r=>setTimeout(r,pendingLeft));
@@ -3713,7 +3721,6 @@ markDMConversationRead=async function(target,lastId){
 refreshCurrentDMReadState=async function(){ updateDMTicks(getLocalDMRead(currentDMUser?.id)); };
 const _finalReplySend=window.sendMessage;
 window.sendMessage=async function(){
-  if(replyTo) cancelReply();
   return _finalReplySend();
 };
 const _stableEnterChat=enterChat;
@@ -3775,7 +3782,6 @@ openDMChat=async function(target){
 };
 const _pendingWrappedSend=window.sendMessage;
 window.sendMessage=async function(){
-  if(replyTo)cancelReply();
   try{
     const result=await _pendingWrappedSend();
     if(currentMode==='dm'&&currentDMUser?.id){
@@ -4031,16 +4037,75 @@ adminDeleteAllUsers=(function(orig){
   return async function(){
     const menu=document.getElementById('adminActionsMenu');
     if(menu)menu.classList.remove('open');
-    return orig();
+    if(!await customConfirm('Удалить всех?','Все аккаунты кроме твоего будут удалены. Это необратимо!'))return;
+    try{
+      await callRpc('bundle_admin_delete_all_users',{p_token:getSessionToken()});
+      document.getElementById('dmList').innerHTML='';
+      dmUnread={};
+      adminPanelData.users=[];
+      adminPanelData.messages=[];
+      adminPanelData.sessions=[];
+      if(currentMode==='dm')switchToGlobal();
+      if(document.getElementById('adminPanelModal')?.classList.contains('show'))loadAdminPanel(true).catch(()=>{});
+      showToast('Все пользователи удалены');
+    }catch(e){
+      console.error(e);
+      showToast('Не удалось удалить пользователей');
+    }
   };
 })(adminDeleteAllUsers);
 adminClearChat=(function(orig){
   return function(){
     const menu=document.getElementById('adminActionsMenu');
     if(menu)menu.classList.remove('open');
-    return orig();
+    document.getElementById('clearChatModal').classList.add('show');
   };
 })(adminClearChat);
+confirmClearChat=async function(){
+  document.getElementById('clearChatModal').classList.remove('show');
+  try{
+    await callRpc('bundle_admin_clear_chat',{p_token:getSessionToken()});
+    renderedIds.clear();
+    lastSenderId=null;
+    lastDate=null;
+    lastMsgId=0;
+    globalRenderSignature='';
+    document.getElementById('messagesWrap').innerHTML='<div class="sys-msg">Чат очищен</div>';
+    if(document.getElementById('adminPanelModal')?.classList.contains('show'))loadAdminPanel(true).catch(()=>{});
+    showToast('Чат очищен');
+  }catch(e){
+    console.error(e);
+    showToast('Не удалось очистить чат');
+  }
+};
+saveAvatar=async function(){
+  if(!newModalAvatar){closeAvatarModal();return;}
+  const btn=document.getElementById('saveAvatarBtn');
+  btn.disabled=true;
+  btn.textContent='Сохраняем...';
+  try{
+    await callRpc('bundle_secure_update_avatar',{p_token:getSessionToken(),p_avatar:newModalAvatar});
+    me.avatar=newModalAvatar;
+    updateSidebar();
+    closeAvatarModal();
+    showToast('Аватар обновлён!');
+  }catch(e){
+    console.error(e);
+    showToast('Не удалось обновить аватар');
+  }
+  btn.disabled=false;
+  btn.textContent='Сохранить';
+};
+deleteMessageSecure=async function(mode,id){
+  const token=getSessionToken();
+  if(!token)throw new Error('Нет сессии');
+  if(mode==='dm'){
+    await callRpc('bundle_secure_delete_dm_message',{p_token:token,p_dm_public_id:String(id)});
+  }else{
+    await callRpc('bundle_secure_delete_global_message',{p_token:token,p_message_public_id:String(id)});
+  }
+  return true;
+};
 </script>
 </body>
 </html>
