@@ -219,6 +219,7 @@
   .attach-btn svg{width:17px;height:17px;}
   .emoji-btn{width:34px;height:34px;flex-shrink:0;background:none;border:none;border-radius:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text2);transition:color .2s,background .2s;font-size:18px;}
   .emoji-btn:hover,.emoji-btn.open{color:var(--accent);background:var(--accent-glow);}
+  button,a,textarea,input,select,div{-webkit-tap-highlight-color:transparent;}
   .attach-sheet{position:fixed;inset:0;display:none;align-items:flex-end;justify-content:center;background:rgba(2,6,12,.54);backdrop-filter:blur(8px);z-index:460;padding:16px;}
   .attach-sheet.show{display:flex;animation:fadeInBg .18s ease;}
   .attach-sheet-card{width:min(100%,420px);background:linear-gradient(180deg,rgba(22,24,34,.98),rgba(12,14,20,.98));border:1px solid rgba(124,92,252,.2);border-radius:24px;padding:14px;box-shadow:0 26px 70px rgba(0,0,0,.4);}
@@ -1785,10 +1786,15 @@ function ctxReply(){
   const msg=ctxMsg;
   hideMsgMenu();
   replyTo=msg;
-  document.getElementById('replyNickLabel').textContent=msg.user_nickname||msg.from_nick||msg.to_nick||'';
-  document.getElementById('replyTextLabel').textContent=ctxMsg.content||'📷 Фото';
-  document.getElementById('replyPreviewBar').classList.add('show');
+  showReplyPreview(msg);
   document.getElementById('msgInput').focus();
+}
+function showReplyPreview(msg){
+  if(!msg)return;
+  replyTo=msg;
+  document.getElementById('replyNickLabel').textContent=msg.user_nickname||msg.from_nick||msg.to_nick||'';
+  document.getElementById('replyTextLabel').textContent=msg.content||'📷 Фото';
+  document.getElementById('replyPreviewBar').classList.add('show');
 }
 function cancelReply(){
   replyTo=null;
@@ -2232,9 +2238,20 @@ function renderDMMsg(msg,scroll=false){
     if(plainText){const cap=document.createElement('div');cap.className='img-caption';cap.textContent=plainText;bbl.appendChild(cap);}
     cont.appendChild(bbl);
   } else if(attachment){
-    cont.appendChild(createFileBubble(attachment, plainText));
-  } else if(plainText){
+    const bubble=createFileBubble(attachment, plainText);
+    if(msg.reply_to_id&&(msg.reply_to_nick||msg.reply_to_text)){
+      const rb=document.createElement('div');rb.className='reply-bubble';
+      rb.innerHTML=`<strong>${msg.reply_to_nick||''}</strong>${msg.reply_to_text||''}`;
+      bubble.prepend(rb);
+    }
+    cont.appendChild(bubble);
+  } else if(plainText||(msg.reply_to_id&&(msg.reply_to_nick||msg.reply_to_text))){
     const bbl=document.createElement('div');bbl.className='bubble';bbl.textContent=plainText;cont.appendChild(bbl);
+    if(msg.reply_to_id&&(msg.reply_to_nick||msg.reply_to_text)){
+      const rb=document.createElement('div');rb.className='reply-bubble';
+      rb.innerHTML=`<strong>${msg.reply_to_nick||''}</strong>${msg.reply_to_text||''}`;
+      bbl.prepend(rb);
+    }
   }
   // Time + ticks for own msgs
   const tmWrap=document.createElement('div');tmWrap.style.cssText='display:flex;align-items:center;gap:1px;';
@@ -2301,6 +2318,8 @@ window.sendMessage=async function(){
     const text=inp.value.trim();
     if(!text&&!attachFile)return;
     if(!me)return;
+    const replySnapshot=replyTo?{...replyTo}:null;
+    if(replySnapshot)cancelReply();
     inp.value='';autoResize(inp);
     document.getElementById('sendBtn').disabled=true;
     try{
@@ -2840,7 +2859,10 @@ function mapSecureDM(row){
     content:row.content,
     image_url:row.image_url,
     created_at:row.created_at,
-    read:row.read
+    read:row.read,
+    reply_to_id:row.reply_to_public_id,
+    reply_to_nick:row.reply_to_nick,
+    reply_to_text:row.reply_to_text
   };
 }
 const _renderMsg=renderMsg;
@@ -3386,8 +3408,7 @@ window.sendMessage=async function(){
     document.getElementById('sendBtn').disabled=true;
     try{
       const prepared=await prepareAttachmentMessage(backupText);
-      const rows=asArray(await callRpc('bundle_secure_send_dm_message',{p_token:getSessionToken(),p_peer_public_id:currentDMUser.id,p_content:prepared.content,p_image_url:prepared.imageUrl}));
-      cancelReply();
+      const rows=asArray(await callRpc('bundle_secure_send_dm_message',{p_token:getSessionToken(),p_peer_public_id:currentDMUser.id,p_content:prepared.content,p_image_url:prepared.imageUrl,p_reply_to_public_id:replySnapshot?.id||null,p_reply_to_nick:replySnapshot?.user_nickname||replySnapshot?.from_nick||replySnapshot?.to_nick||null,p_reply_to_text:replySnapshot?(replySnapshot.content||'📷 Фото'):null}));
       if(rows[0])renderDMMsg(mapSecureDM(rows[0]),true);
       const pendingLeft=380-(Date.now()-pendingShownAt);
       if(pendingLeft>0)await new Promise(r=>setTimeout(r,pendingLeft));
@@ -3403,6 +3424,7 @@ window.sendMessage=async function(){
       console.error('secure dm send error:',e);
       showToast('Не удалось отправить');
       inp.value=backupText;
+      if(replySnapshot)showReplyPreview(replySnapshot);
       autoResize(inp);
     }
     document.getElementById('sendBtn').disabled=!canSend();
@@ -3413,6 +3435,8 @@ window.sendMessage=async function(){
   const text=inp.value.trim();
   if(!text&&!attachFile)return;
   if(!me)return;
+  const replySnapshot=replyTo?{...replyTo}:null;
+  if(replySnapshot)cancelReply();
   const pendingUploadCleanup=attachFile
     ? (isImageFile(attachFile)?showPendingImageUpload(attachFile,text):showPendingMessage(text,attachFile))
     : showPendingMessage(text,null);
@@ -3421,8 +3445,7 @@ window.sendMessage=async function(){
   document.getElementById('sendBtn').disabled=true;
   try{
     const prepared=await prepareAttachmentMessage(text);
-    const rows=asArray(await callRpc('bundle_secure_send_global_message',{p_token:getSessionToken(),p_content:prepared.content,p_image_url:prepared.imageUrl,p_reply_to_public_id:replyTo?.id||null}));
-    cancelReply();
+    const rows=asArray(await callRpc('bundle_secure_send_global_message',{p_token:getSessionToken(),p_content:prepared.content,p_image_url:prepared.imageUrl,p_reply_to_public_id:replySnapshot?.id||null}));
     if(rows[0])renderMsg(mapSecureGlobalMessage(rows[0]),true);
     const pendingLeft=380-(Date.now()-pendingShownAt);
     if(pendingLeft>0)await new Promise(r=>setTimeout(r,pendingLeft));
@@ -3436,6 +3459,7 @@ window.sendMessage=async function(){
     console.error('secure global send error:',e);
     showToast('Не удалось отправить');
     inp.value=text;
+    if(replySnapshot)showReplyPreview(replySnapshot);
     autoResize(inp);
   }
   document.getElementById('sendBtn').disabled=!canSend();
@@ -3968,6 +3992,34 @@ openAdminPanel=(function(orig){
     return orig();
   };
 })(openAdminPanel);
+refreshDMHeaderPresence=(function(orig){
+  return async function(){
+    const activePeerId=currentMode==='dm'&&currentDMUser?String(currentDMUser.id||''):'';
+    await orig();
+    if(currentMode==='global'){
+      const sub=document.getElementById('chatTopbarSub');
+      const onlineCount=document.getElementById('onlineCount')?.textContent||'1';
+      if(sub)sub.innerHTML=`<span id="onlineCount">${onlineCount}</span> онлайн`;
+      return;
+    }
+    if(activePeerId && (currentMode!=='dm'||String(currentDMUser?.id||'')!==activePeerId)){
+      const sub=document.getElementById('chatTopbarSub');
+      const onlineCount=document.getElementById('onlineCount')?.textContent||'1';
+      if(sub)sub.innerHTML=`<span id="onlineCount">${onlineCount}</span> онлайн`;
+    }
+  };
+})(refreshDMHeaderPresence);
+switchToGlobal=(function(orig){
+  return function(){
+    const result=orig();
+    const title=document.getElementById('chatTopbarTitle');
+    const sub=document.getElementById('chatTopbarSub');
+    const onlineCount=document.getElementById('onlineCount')?.textContent||'1';
+    if(title)title.textContent='Глобальный чат';
+    if(sub)sub.innerHTML=`<span id="onlineCount">${onlineCount}</span> онлайн`;
+    return result;
+  };
+})(switchToGlobal);
 adminResetAvatars=(function(orig){
   return async function(){
     const menu=document.getElementById('adminActionsMenu');
