@@ -1373,12 +1373,7 @@ async function confirmMute(){
   if(!muteUid)return;
   try{
     const muteDate=calcMuteDate().toISOString();
-    // Try direct PATCH first, fallback to RPC
-    const r=await fetch(`${SUPABASE_URL}/rest/v1/bundle_users?id=eq.${muteUid}`,{
-      method:'PATCH',headers:{...H,'x-admin-id':me.id},
-      body:JSON.stringify({muted_until:muteDate})
-    });
-    if(!r.ok)throw new Error(await r.text());
+    await callRpc('bundle_secure_set_mute',{p_token:getSessionToken(),p_target_user_id:String(muteUid),p_muted_until:muteDate});
     showToast(`${muteNick} замьючен ✅`);closeMuteModal();hideMsgMenu();
   }catch(e){console.error(e);showToast('Ошибка: '+e.message);}
 }
@@ -1596,10 +1591,7 @@ function ctxMute(){if(!ctxMsg)return;const uid=ctxMsg.user_id,nick=ctxMsg.user_n
 async function ctxUnmute(){
   if(!ctxMsg)return;const uid=ctxMsg.user_id,nick=ctxMsg.user_nickname;hideMsgMenu();
   try{
-    const r=await fetch(`${SUPABASE_URL}/rest/v1/bundle_users?id=eq.${uid}`,{
-      method:'PATCH',headers:{...H},body:JSON.stringify({muted_until:null})
-    });
-    if(!r.ok)throw new Error(await r.text());
+    await callRpc('bundle_secure_set_mute',{p_token:getSessionToken(),p_target_user_id:String(uid),p_muted_until:null});
     showToast(`${nick} размучен ✅`);
   }catch(e){showToast('Ошибка: '+e.message);}
 }
@@ -3157,19 +3149,24 @@ window.sendMessage=async function(){
     const pendingUploadCleanup=attachFile
       ? (isImageFile(attachFile)?showPendingImageUpload(attachFile,text):showPendingMessage(text,attachFile))
       : showPendingMessage(text,null);
+    const pendingShownAt=Date.now();
     const backupText=text;
     inp.value='';autoResize(inp);
     document.getElementById('sendBtn').disabled=true;
     try{
       const prepared=await prepareAttachmentMessage(backupText);
-      if(pendingUploadCleanup)pendingUploadCleanup();
       const rows=asArray(await callRpc('bundle_secure_send_dm_message',{p_token:getSessionToken(),p_peer_public_id:currentDMUser.id,p_content:prepared.content,p_image_url:prepared.imageUrl}));
       cancelReply();
       if(rows[0])renderDMMsg(mapSecureDM(rows[0]),true);
+      const pendingLeft=380-(Date.now()-pendingShownAt);
+      if(pendingLeft>0)await new Promise(r=>setTimeout(r,pendingLeft));
+      if(pendingUploadCleanup)pendingUploadCleanup();
       await loadDMChats();
       dmRenderSignatures[currentDMUser.id]='';
       await loadDMMessages(currentDMUser,true);
     }catch(e){
+      const pendingLeft=380-(Date.now()-pendingShownAt);
+      if(pendingLeft>0)await new Promise(r=>setTimeout(r,pendingLeft));
       if(pendingUploadCleanup)pendingUploadCleanup();
       handleSecureRpcError(e,'dm send');
       console.error('secure dm send error:',e);
@@ -3188,16 +3185,21 @@ window.sendMessage=async function(){
   const pendingUploadCleanup=attachFile
     ? (isImageFile(attachFile)?showPendingImageUpload(attachFile,text):showPendingMessage(text,attachFile))
     : showPendingMessage(text,null);
+  const pendingShownAt=Date.now();
   inp.value='';autoResize(inp);
   document.getElementById('sendBtn').disabled=true;
   try{
     const prepared=await prepareAttachmentMessage(text);
-    if(pendingUploadCleanup)pendingUploadCleanup();
     const rows=asArray(await callRpc('bundle_secure_send_global_message',{p_token:getSessionToken(),p_content:prepared.content,p_image_url:prepared.imageUrl,p_reply_to_public_id:replyTo?.id||null}));
     cancelReply();
     if(rows[0])renderMsg(mapSecureGlobalMessage(rows[0]),true);
+    const pendingLeft=380-(Date.now()-pendingShownAt);
+    if(pendingLeft>0)await new Promise(r=>setTimeout(r,pendingLeft));
+    if(pendingUploadCleanup)pendingUploadCleanup();
     globalRenderSignature='';
   }catch(e){
+    const pendingLeft=380-(Date.now()-pendingShownAt);
+    if(pendingLeft>0)await new Promise(r=>setTimeout(r,pendingLeft));
     if(pendingUploadCleanup)pendingUploadCleanup();
     handleSecureRpcError(e,'global send');
     console.error('secure global send error:',e);
