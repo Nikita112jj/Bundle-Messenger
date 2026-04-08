@@ -6,7 +6,6 @@
 <title>Bundle</title>
 <link rel="icon" type="image/png" href="https://vjqrfojuxysihxsyuhly.supabase.co/storage/v1/object/public/icons/bundleico.png">
 <link rel="shortcut icon" href="https://vjqrfojuxysihxsyuhly.supabase.co/storage/v1/object/public/icons/bundleico.png">
-<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
@@ -109,6 +108,9 @@
   .logout-btn{background:none;border:none;cursor:pointer;color:var(--text2);padding:6px;border-radius:8px;display:flex;align-items:center;}
   .logout-btn:hover{color:#f87171;background:rgba(248,113,113,.1);}
   .logout-btn svg{width:16px;height:16px;}
+  .admin-quick-btn{border:none;cursor:pointer;color:#fff;padding:8px 12px;border-radius:10px;display:flex;align-items:center;gap:7px;background:linear-gradient(135deg,#7c5cfc,#38bdf8);font-size:12px;font-weight:800;box-shadow:0 10px 22px rgba(124,92,252,.22);}
+  .admin-quick-btn:hover{filter:brightness(1.06);transform:translateY(-1px);}
+  .admin-quick-btn svg{width:15px;height:15px;}
 
   /* Chat main */
   .chat-main{flex:1;display:flex;flex-direction:column;height:100vh;overflow:hidden;position:relative;}
@@ -168,13 +170,13 @@
   .msg-sender{font-size:11px;font-weight:600;color:var(--accent2);padding:0 4px;margin-bottom:1px;}
   .bubble{background:var(--msg-other);border:1px solid var(--border);border-radius:14px 14px 14px 4px;padding:9px 13px;font-size:14px;line-height:1.5;color:var(--text);word-break:break-word;user-select:none;-webkit-user-select:none;}
   .msg-group.own .bubble{background:var(--msg-own);border-color:rgba(124,92,252,.3);border-radius:14px 14px 4px 14px;}
-  .bubble.file-bubble{display:flex;align-items:center;gap:12px;min-width:230px;max-width:min(360px,78vw);padding:12px 13px;border-radius:18px;box-shadow:0 14px 28px rgba(0,0,0,.14),inset 0 1px 0 rgba(255,255,255,.04);}
+  .bubble.file-bubble{display:flex;align-items:center;gap:12px;min-width:230px;max-width:min(360px,78vw);padding:12px 13px;border-radius:18px;box-shadow:0 14px 28px rgba(0,0,0,.14),inset 0 1px 0 rgba(255,255,255,.04);overflow:hidden;}
   .msg-group.own .bubble.file-bubble{background:linear-gradient(145deg,rgba(124,92,252,.32),rgba(71,48,170,.4));border-color:rgba(167,139,250,.34);}
   .file-bubble-icon{width:42px;height:42px;border-radius:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f59e0b,#ef4444 55%,#8b5cf6);border:1px solid rgba(255,255,255,.14);color:#fff;font-size:11px;font-weight:800;letter-spacing:.5px;box-shadow:0 10px 18px rgba(0,0,0,.22);}
   .file-bubble-meta{min-width:0;flex:1;display:flex;flex-direction:column;gap:3px}
-  .file-bubble-name{font-size:13px;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .file-bubble-sub{font-size:11px;color:var(--text2);line-height:1.35}
-  .file-bubble-actions{display:flex;gap:7px;align-self:flex-start}
+  .file-bubble-name{font-size:13px;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .file-bubble-sub{font-size:11px;color:var(--text2);line-height:1.35;overflow:hidden;text-overflow:ellipsis}
+  .file-bubble-actions{display:flex;gap:7px;align-self:flex-start;flex-shrink:0}
   .file-action-btn,.lightbox-action-btn{border:none;border-radius:12px;padding:8px 11px;cursor:pointer;font-size:12px;font-weight:800;color:#fff;background:linear-gradient(135deg,#38bdf8,#2563eb);box-shadow:0 8px 18px rgba(37,99,235,.25)}
   .file-action-btn.secondary,.lightbox-action-btn.secondary{background:linear-gradient(135deg,#1f2937,#0f172a);box-shadow:0 8px 18px rgba(15,23,42,.22)}
   .msg-time{font-size:10px;color:var(--text2);padding:0 4px;}
@@ -217,6 +219,17 @@
   .attach-btn svg{width:17px;height:17px;}
   .emoji-btn{width:34px;height:34px;flex-shrink:0;background:none;border:none;border-radius:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text2);transition:color .2s,background .2s;font-size:18px;}
   .emoji-btn:hover,.emoji-btn.open{color:var(--accent);background:var(--accent-glow);}
+  .attach-sheet{position:fixed;inset:0;display:none;align-items:flex-end;justify-content:center;background:rgba(2,6,12,.54);backdrop-filter:blur(8px);z-index:460;padding:16px;}
+  .attach-sheet.show{display:flex;animation:fadeInBg .18s ease;}
+  .attach-sheet-card{width:min(100%,420px);background:linear-gradient(180deg,rgba(22,24,34,.98),rgba(12,14,20,.98));border:1px solid rgba(124,92,252,.2);border-radius:24px;padding:14px;box-shadow:0 26px 70px rgba(0,0,0,.4);}
+  .attach-sheet-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 6px 12px;}
+  .attach-sheet-title{font-size:15px;font-weight:800;color:var(--text);}
+  .attach-sheet-close{width:34px;height:34px;border:none;border-radius:12px;background:var(--bg3);color:var(--text2);cursor:pointer;}
+  .attach-sheet-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .attach-sheet-btn{border:none;border-radius:18px;padding:16px 12px;background:linear-gradient(135deg,rgba(124,92,252,.22),rgba(56,189,248,.12));color:var(--text);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;font-weight:800;min-height:112px;}
+  .attach-sheet-btn.secondary{background:linear-gradient(135deg,rgba(31,41,55,.86),rgba(15,23,42,.96));}
+  .attach-sheet-btn svg{width:24px;height:24px;color:#c4b5fd;}
+  .attach-sheet-btn span:last-child{font-size:12px;font-weight:600;color:var(--text2);text-align:center;line-height:1.35;}
   #fileInput{display:none;}
   #msgInput{flex:1;background:none;border:none;outline:none;color:var(--text);font-size:15px;font-family:'DM Sans',sans-serif;resize:none;max-height:100px;line-height:1.5;padding:5px 0;}
   #msgInput::placeholder{color:var(--text2);}
@@ -234,6 +247,35 @@
   .modal-bg.show .modal{animation:slideUpModal .22s cubic-bezier(.34,1.56,.64,1);}
   @keyframes slideUpModal{from{opacity:0;transform:translateY(24px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
   .modal-bg.show{display:flex;}
+  .admin-panel-modal{align-items:stretch;justify-content:stretch;padding:18px;background:rgba(4,6,10,.84);backdrop-filter:blur(10px);}
+  .admin-panel-shell{width:min(1440px,100%);height:100%;background:linear-gradient(180deg,rgba(20,22,30,.98),rgba(12,13,18,.98));border:1px solid rgba(124,92,252,.18);border-radius:24px;box-shadow:0 30px 80px rgba(0,0,0,.45);display:flex;flex-direction:column;overflow:hidden;}
+  .admin-panel-head{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px 20px;border-bottom:1px solid var(--border);background:linear-gradient(135deg,rgba(124,92,252,.18),rgba(56,189,248,.08));}
+  .admin-panel-title{display:flex;align-items:center;gap:12px;}
+  .admin-panel-title-badge{width:40px;height:40px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#7c5cfc,#38bdf8);color:#fff;box-shadow:0 12px 26px rgba(124,92,252,.32);}
+  .admin-panel-title h3{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;}
+  .admin-panel-title p{font-size:12px;color:var(--text2);margin-top:2px;}
+  .admin-panel-close{background:var(--bg3);border:1px solid var(--border);color:var(--text2);width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+  .admin-panel-close:hover{color:var(--text);border-color:rgba(124,92,252,.35);}
+  .admin-panel-tabs{display:flex;gap:8px;padding:14px 18px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.01);}
+  .admin-panel-tab{border:none;background:var(--bg3);color:var(--text2);padding:10px 14px;border-radius:12px;cursor:pointer;font-size:13px;font-weight:700;}
+  .admin-panel-tab.active{background:linear-gradient(135deg,rgba(124,92,252,.24),rgba(56,189,248,.16));color:#fff;border:1px solid rgba(124,92,252,.28);}
+  .admin-panel-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid var(--border);}
+  .admin-panel-search{flex:1;min-width:0;background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:11px 14px;color:var(--text);outline:none;font-size:14px;}
+  .admin-panel-search:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow);}
+  .admin-panel-refresh{border:none;border-radius:12px;padding:10px 14px;cursor:pointer;background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;font-weight:700;}
+  .admin-panel-body{flex:1;min-height:0;padding:0 18px 18px;overflow:auto;}
+  .admin-panel-status{padding:16px 0;color:var(--text2);font-size:13px;}
+  .admin-table-wrap{border:1px solid var(--border);border-radius:18px;overflow:auto;background:rgba(255,255,255,.02);}
+  .admin-table{width:100%;border-collapse:collapse;min-width:980px;}
+  .admin-table th,.admin-table td{padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.05);text-align:left;vertical-align:top;font-size:12px;}
+  .admin-table th{position:sticky;top:0;background:#141620;color:#d6d7e5;font-size:11px;letter-spacing:.4px;text-transform:uppercase;z-index:1;}
+  .admin-table td{color:var(--text2);}
+  .admin-table td strong{color:var(--text);font-weight:700;}
+  .admin-table tr:hover td{background:rgba(124,92,252,.05);}
+  .admin-cell-code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px;color:#c5cae5;word-break:break-all;}
+  .admin-cell-long{max-width:320px;white-space:pre-wrap;word-break:break-word;}
+  .admin-action-btn-sm{border:none;border-radius:10px;padding:8px 10px;cursor:pointer;font-size:11px;font-weight:800;color:#fff;background:linear-gradient(135deg,#ef4444,#f97316);}
+  .admin-chip{display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(124,92,252,.12);color:#c9b9ff;border:1px solid rgba(124,92,252,.2);}
   .modal{background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:26px 30px;width:345px;max-width:calc(100vw - 24px);display:flex;flex-direction:column;align-items:center;gap:13px;}
   .modal h3{font-family:'Syne',sans-serif;font-size:17px;font-weight:700;}
   .modal-avatar-wrap{position:relative;width:94px;height:94px;cursor:pointer;}
@@ -335,6 +377,12 @@
     .hamburger{display:flex;}
     .chat-main{width:100%;}
     .msg-content{max-width:82%;}
+    .bubble.file-bubble{min-width:0;max-width:min(100%,82vw);padding:10px 11px;gap:10px;}
+    .file-bubble-icon{width:36px;height:36px;border-radius:12px;font-size:10px;}
+    .file-bubble-name{font-size:12px;}
+    .file-bubble-sub{font-size:10px;white-space:nowrap;}
+    .file-bubble-actions{flex-direction:column;gap:6px;}
+    .file-action-btn{padding:7px 9px;font-size:11px;white-space:nowrap;}
     .chat-topbar,.messages-wrap,.input-area{padding-left:14px;padding-right:14px;}
     .auth-card{padding:26px 18px;}
     .input-area{padding-bottom:max(13px,env(safe-area-inset-bottom));}
@@ -354,6 +402,15 @@
     <div class="brand">
       <div class="brand-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
       <span class="brand-name">Bundle</span>
+      <div id="adminMenuWrap" style="display:none;position:relative">
+        <button class="admin-menu-btn" onclick="toggleAdminMenu()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></button>
+        <div id="adminActionsMenu">
+          <div class="admin-action-opt" onclick="openAdminPanel()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M7 20h10"/><path d="M9 8h6"/><path d="M9 12h3"/></svg>Админ панель</div>
+          <div class="admin-action-opt danger" onclick="adminClearChat()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>Очистить чат</div>
+          <div class="admin-action-opt" onclick="adminResetAvatars()" style="color:#facc15"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/><line x1="1" y1="1" x2="23" y2="23"/></svg>Сбросить все авы</div>
+          <div class="admin-action-opt danger" onclick="adminDeleteAllUsers()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="23" y1="11" x2="17" y2="11"/></svg>Удалить всех юзеров</div>
+        </div>
+      </div>
     </div>
 
     <div class="auth-tabs" id="authTabs">
@@ -412,22 +469,6 @@
       <div class="err-msg" id="regErr"></div>
     </div>
 
-    <!-- OTP -->
-    <div class="auth-form" id="otpForm">
-      <h2 id="otpTitle">Подтверди почту</h2>
-      <p id="otpSubtitle">Отправили 5-значный код на<br><strong id="otpEmailShow" style="color:var(--text)"></strong></p>
-      <div class="otp-wrap">
-        <input type="text" inputmode="numeric" maxlength="1" id="otp0" oninput="otpInput(0)" onkeydown="otpKey(event,0)">
-        <input type="text" inputmode="numeric" maxlength="1" id="otp1" oninput="otpInput(1)" onkeydown="otpKey(event,1)">
-        <input type="text" inputmode="numeric" maxlength="1" id="otp2" oninput="otpInput(2)" onkeydown="otpKey(event,2)">
-        <input type="text" inputmode="numeric" maxlength="1" id="otp3" oninput="otpInput(3)" onkeydown="otpKey(event,3)">
-        <input type="text" inputmode="numeric" maxlength="1" id="otp4" oninput="otpInput(4)" onkeydown="otpKey(event,4)">
-      </div>
-      <div class="err-msg" id="otpErr"></div>
-      <button class="btn-primary" id="otpBtn" onclick="verifyOtp()">Подтвердить</button>
-      <div class="otp-resend">Не пришло? <span onclick="resendOtp()">Отправить снова</span></div>
-    </div>
-
   </div>
 </div>
 
@@ -467,6 +508,12 @@
         <div class="my-name" id="myNickSidebar">—</div>
         <div class="my-handle" id="myHandleSidebar"></div>
       </div>
+      <div id="adminQuickWrap" style="display:none">
+        <button class="admin-quick-btn" onclick="openAdminPanel()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 4v5c0 5-3.5 8-7 9-3.5-1-7-4-7-9V7l7-4z"/><path d="M9 12l2 2 4-4"/></svg>
+          <span>Админ</span>
+        </button>
+      </div>
       <button class="logout-btn" onclick="logout()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>
     </div>
   </div>
@@ -476,14 +523,6 @@
       <button class="hamburger" onclick="openSidebar()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
       <div class="ch-icon" id="chatTopbarIcon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
       <div class="chat-topbar-info"><h3 id="chatTopbarTitle">Глобальный чат</h3><span id="chatTopbarSub"><span id="onlineCount">1</span> онлайн</span></div>
-      <div id="adminMenuWrap" style="display:none;position:relative">
-        <button class="admin-menu-btn" onclick="toggleAdminMenu()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></button>
-        <div id="adminActionsMenu">
-          <div class="admin-action-opt danger" onclick="adminClearChat()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>Очистить чат</div>
-          <div class="admin-action-opt" onclick="adminResetAvatars()" style="color:#facc15"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/><line x1="1" y1="1" x2="23" y2="23"/></svg>Сбросить все авы</div>
-          <div class="admin-action-opt danger" onclick="adminDeleteAllUsers()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="23" y1="11" x2="17" y2="11"/></svg>Удалить всех юзеров</div>
-        </div>
-      </div>
     </div>
 
     <div class="messages-wrap" id="messagesWrap"><div class="loading-msg">Загрузка...</div></div>
@@ -569,6 +608,38 @@
   </div>
 </div>
 
+<div class="modal-bg admin-panel-modal" id="adminPanelModal">
+  <div class="admin-panel-shell">
+    <div class="admin-panel-head">
+      <div class="admin-panel-title">
+        <div class="admin-panel-title-badge">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 4v5c0 5-3.5 8-7 9-3.5-1-7-4-7-9V7l7-4z"/><path d="M9 12l2 2 4-4"/></svg>
+        </div>
+        <div>
+          <h3>Админ панель</h3>
+          <p>Пользователи, сообщения и сессии в одном месте</p>
+        </div>
+      </div>
+      <button class="admin-panel-close" onclick="closeAdminPanel()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="admin-panel-tabs">
+      <button class="admin-panel-tab active" data-admin-tab="users" onclick="switchAdminTab('users')">Юзеры</button>
+      <button class="admin-panel-tab" data-admin-tab="messages" onclick="switchAdminTab('messages')">Сообщения</button>
+      <button class="admin-panel-tab" data-admin-tab="sessions" onclick="switchAdminTab('sessions')">Сессии</button>
+    </div>
+    <div class="admin-panel-toolbar">
+      <input class="admin-panel-search" id="adminPanelSearch" placeholder="Поиск по нику, id, username, содержимому..." oninput="renderAdminPanel()">
+      <button class="admin-panel-refresh" onclick="loadAdminPanel(true)">Обновить</button>
+    </div>
+    <div class="admin-panel-body">
+      <div class="admin-panel-status" id="adminPanelStatus">Готово к загрузке</div>
+      <div id="adminPanelContent"></div>
+    </div>
+  </div>
+</div>
+
 <!-- Context menu -->
 <div id="msgMenu">
   <div class="ctx-item" style="color:var(--text)" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''" onclick="ctxReply()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>Ответить</div>
@@ -636,14 +707,6 @@
 const SUPABASE_URL = 'https://vjqrfojuxysihxsyuhly.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZqcXJmb2p1eHlzaWh4c3l1aGx5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyODYyNjUsImV4cCI6MjA5MDg2MjI2NX0.DvMZa0MyB2MvW1LZsU3rnL6rU3a-87J7PHJS62SAKWQ';
 const STORAGE_BUCKET = 'bundle-images'; // создай bucket с таким именем в Supabase Storage → Public
-
-// EmailJS — зарегистрируйся на emailjs.com (бесплатно 200 писем/мес)
-// 1) Account → General → Public Key
-// 2) Email Services → Add Service (Gmail/Outlook/etc) → скопируй Service ID
-// 3) Email Templates → Create → добавь переменные {{to_email}} {{code}} {{user_name}} → скопируй Template ID
-const EMAILJS_PUBLIC_KEY  = 'ВСТАВЬ_PUBLIC_KEY';
-const EMAILJS_SERVICE_ID  = 'ВСТАВЬ_SERVICE_ID';
-const EMAILJS_TEMPLATE_ID = 'ВСТАВЬ_TEMPLATE_ID';
 
 const ADMIN_NICK_LOWER  = 'neked';
 const ADMIN_USERNAME    = 'neked';
@@ -789,7 +852,6 @@ let themeMode=localStorage.getItem('bundle-theme')||'system';
 let lastSenderId=null,lastDate=null,renderedIds=new Set(),lastMsgId=0;
 let pollTimer=null,ctxMsg=null;
 let muteUid=null,muteNick=null;
-let otpCode=null,otpData=null,otpMode=null,forgotUid=null;
 let attachFile=null,replyTo=null;
 var bgLastDMId=0,globalMessagesChannel=null,dmMessagesChannel=null,dmReadsChannel=null,onlineChannel=null;
 let dmChatsWriteAllowed=true,dmReadsWriteAllowed=true,dmOnlineTimer=null;
@@ -802,6 +864,9 @@ let dmRenderSignatures={};
 let typingStopTimer=null,lastTypingPingAt=0;
 let dmListHydrated=false;
 let profileUser=null;
+let adminPanelTab='users';
+let adminPanelData={users:[],messages:[],sessions:[]};
+let adminPanelLoaded={users:false,messages:false,sessions:false};
 const brokenMediaUrls=new Set();
 const EMOJI_SET=['😀','😁','😂','🤣','😊','😍','🥰','😘','😎','🥳','🤝','🙏','🔥','💜','✨','🎉','👍','👀','🤔','😴','🥺','😭','😡','🤯','😅','😇','🤗','😏','😜','🤩','💯','❤️','🫶','😌','🤟','👑','🍓','🌙','⚡','🎵'];
 let dmListBootUntil=0;
@@ -837,6 +902,7 @@ document.getElementById('avatarInput').addEventListener('change',function(){
 // ── UTILS ──
 const isAdmin=nick=>(nick||'').trim().toLowerCase()===ADMIN_NICK_LOWER;
 const isAdminUser=u=>(u||'').trim().toLowerCase()===ADMIN_USERNAME;
+const isAdminAccount=(user=me)=>!!user&&(isAdmin(user.nickname)||isAdminUser(user.username));
 const hashP=p=>btoa(unescape(encodeURIComponent(p)));
 const genCode=()=>String(Math.floor(10000+Math.random()*90000));
 function showToast(m,d=3000){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),d);}
@@ -884,6 +950,12 @@ function ensureEnhancedUI(){
   const input=document.getElementById('fileInput');
   if(input)input.accept='';
   const row=document.querySelector('.input-row');
+  const attachBtn=row?.querySelector('.attach-btn');
+  if(attachBtn&&!attachBtn.dataset.mobileChooserBound){
+    attachBtn.dataset.mobileChooserBound='1';
+    attachBtn.title='Прикрепить';
+    attachBtn.onclick=e=>{e.preventDefault();e.stopPropagation();openAttachChooser();};
+  }
   if(row&&!document.getElementById('emojiBtn')){
     const emojiBtn=document.createElement('button');
     emojiBtn.type='button';
@@ -902,6 +974,14 @@ function ensureEnhancedUI(){
     panel.innerHTML=EMOJI_SET.map(emoji=>`<button type="button" class="emoji-cell" onclick="insertEmoji('${emoji}')">${emoji}</button>`).join('');
     area.appendChild(panel);
   }
+  if(area&&!document.getElementById('attachSheet')){
+    const sheet=document.createElement('div');
+    sheet.id='attachSheet';
+    sheet.className='attach-sheet';
+    sheet.innerHTML=`<div class="attach-sheet-card" onclick="event.stopPropagation()"><div class="attach-sheet-head"><div class="attach-sheet-title">Выбери вложение</div><button type="button" class="attach-sheet-close" onclick="closeAttachChooser()">✕</button></div><div class="attach-sheet-actions"><button type="button" class="attach-sheet-btn" onclick="chooseAttachSource('gallery')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><div>Галерея</div><span>Фото и изображения</span></button><button type="button" class="attach-sheet-btn secondary" onclick="chooseAttachSource('files')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h6"/></svg><div>Файлы</div><span>Документы и любые файлы</span></button></div></div>`;
+    sheet.onclick=()=>closeAttachChooser();
+    area.appendChild(sheet);
+  }
   if(wrap&&!document.getElementById('profileLayer')){
     const layer=document.createElement('div');
     layer.id='profileLayer';
@@ -915,6 +995,40 @@ function closeEmojiPanel(){
   const btn=document.getElementById('emojiBtn');
   if(panel)panel.classList.remove('show');
   if(btn)btn.classList.remove('open');
+}
+function isMobileAttachUI(){
+  try{
+    return window.matchMedia('(max-width: 768px)').matches || window.matchMedia('(pointer: coarse)').matches;
+  }catch{
+    return innerWidth<=768;
+  }
+}
+function closeAttachChooser(){
+  const sheet=document.getElementById('attachSheet');
+  if(sheet)sheet.classList.remove('show');
+}
+function chooseAttachSource(mode){
+  const input=document.getElementById('fileInput');
+  if(!input)return;
+  closeAttachChooser();
+  if(mode==='gallery'){
+    input.accept='image/*';
+  }else{
+    input.accept='';
+  }
+  input.click();
+}
+function openAttachChooser(){
+  ensureEnhancedUI();
+  const input=document.getElementById('fileInput');
+  if(!input)return;
+  if(!isMobileAttachUI()){
+    input.accept='';
+    input.click();
+    return;
+  }
+  const sheet=document.getElementById('attachSheet');
+  if(sheet)sheet.classList.add('show');
 }
 function toggleEmojiPanel(){
   ensureEnhancedUI();
@@ -954,9 +1068,11 @@ async function enrichProfileUser(user){
       const rows=await dbQ('bundle_users_public',{filter:`nickname=ilike.${encodeURIComponent(next.nickname)}`,select:'id,nickname,username,avatar,last_seen',limit:1});
       const row=rows?.[0];
       if(row){
-        next.username=next.username||row.username||'';
-        next.avatar=next.avatar||row.avatar||null;
-        next.last_seen=next.last_seen||row.last_seen||null;
+        next.id=next.id||row.id;
+        next.nickname=next.nickname||row.nickname||'';
+        if(Object.prototype.hasOwnProperty.call(row,'username'))next.username=row.username||'';
+        if(Object.prototype.hasOwnProperty.call(row,'avatar'))next.avatar=row.avatar||null;
+        if(Object.prototype.hasOwnProperty.call(row,'last_seen'))next.last_seen=row.last_seen||null;
       }
     }catch{}
   }
@@ -1089,23 +1205,18 @@ ensureEnhancedUI=function(){
 ensureEnhancedUI();
 
 // ── EMAIL OTP ──
-async function sendOtp(email,code,name){
-  if(EMAILJS_PUBLIC_KEY==='ВСТАВЬ_PUBLIC_KEY'){
-    showToast(`📧 DEV режим: код ${code}`,12000);return;
-  }
-  emailjs.init(EMAILJS_PUBLIC_KEY);
-  await emailjs.send(EMAILJS_SERVICE_ID,EMAILJS_TEMPLATE_ID,{to_email:email,code,user_name:name||email});
-}
+async function sendOtp(){ return true; }
 
 // ── TABS ──
 function switchTab(tab){
-  ['login','register','otp'].forEach(f=>{
-    document.getElementById(f+'Form').classList.toggle('active',f===tab);
+  ['login','register'].forEach(f=>{
+    const form=document.getElementById(f+'Form');
+    if(form)form.classList.toggle('active',f===tab);
     const b=document.getElementById('tab'+f[0].toUpperCase()+f.slice(1));
     if(b)b.classList.toggle('active',f===tab);
   });
-  document.getElementById('authTabs').style.display=(tab==='login'||tab==='register')?'':'none';
-  ['loginErr','regErr','otpErr'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent='';});
+  document.getElementById('authTabs').style.display='';
+  ['loginErr','regErr'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent='';});
 }
 
 function onLoginNickInput(v){
@@ -1126,25 +1237,14 @@ async function handleLogin(){
     const search=isHandle?raw.slice(1):raw;
     const filter=isHandle?`username=ilike.${encodeURIComponent(search)}`:`nickname=ilike.${encodeURIComponent(search)}`;
     // ⚠️ Используем bundle_users_public — без password_hash
-    const users=await dbQ('bundle_users_public',{filter,select:'id,nickname,username,avatar,email,muted_until'});
+    const users=await dbQ('bundle_users_public',{filter,select:'id,nickname,username,avatar,muted_until'});
     if(!users||users.length===0){err.textContent='Аккаунт не найден — зарегистрируйся!';btn.disabled=false;btn.textContent='Войти';return;}
     const user=users[0];
     // Проверка пароля всегда на сервере через RPC (клиент не получает password_hash)
     const nickForCheck=isAdminUser(user.username)?ADMIN_NICK_LOWER:user.nickname;
     const ok=await callRpc('check_nick_password',{p_nick:nickForCheck,p_pass:pass});
     if(ok!==true){err.textContent='Неверный пароль';btn.disabled=false;btn.textContent='Войти';return;}
-    if(!isAdmin(user.nickname)&&!isAdminUser(user.username)){
-      if(user.email){
-        const code=genCode();otpCode=code;otpData=user;otpMode='login';
-        try{await sendOtp(user.email,code,user.nickname);}catch(e){console.warn(e);showToast('Не удалось отправить email',4000);}
-        document.getElementById('otpEmailShow').textContent=user.email;
-        document.getElementById('otpTitle').textContent='Подтверди вход';
-        document.getElementById('otpSubtitle').innerHTML=`Отправили код на<br><strong>${user.email}</strong>`;
-        clearOtpBoxes();switchTab('otp');
-      } else {me=user;await finishLogin();}
-    } else {
-      me=user;await finishLogin();
-    }
+    me=user;await finishLogin();
   }catch(e){console.error(e);err.textContent='Ошибка подключения';}
   btn.disabled=false;btn.textContent='Войти';
 }
@@ -1250,7 +1350,6 @@ async function finishLogin(){
   // Store only token in localStorage - NOT user id or data
   localStorage.setItem('bundle-session',token);
   localStorage.removeItem('bundle-user');
-  otpCode=null;otpData=null;otpMode=null;
   enterChat();
 }
 
@@ -1266,6 +1365,8 @@ async function confirmLogout(){
   clearInterval(pollTimer);clearInterval(bgDMPoll);clearInterval(dmPollTimer);
   document.removeEventListener('visibilitychange',onVis);
   lastMsgId=0;attachFile=null;dmUnread={};bgLastDMId=0;dmListHydrated=false;
+  const adminQuickWrap=document.getElementById('adminQuickWrap');
+  if(adminQuickWrap)adminQuickWrap.style.display='none';
   document.getElementById('dmList').innerHTML='';
   document.getElementById('chatScreen').classList.remove('active');
   document.getElementById('authScreen').classList.add('active');
@@ -1282,7 +1383,10 @@ async function enterChat(){
   document.getElementById('chatScreen').classList.add('active');
   dmListHydrated=false;
   updateSidebar();
-  document.getElementById('adminMenuWrap').style.display=isAdmin(me.nickname)?'block':'none';
+  const adminMenuWrap=document.getElementById('adminMenuWrap');
+  if(adminMenuWrap)adminMenuWrap.style.display=isAdminAccount(me)?'block':'none';
+  const adminQuickWrap=document.getElementById('adminQuickWrap');
+  if(adminQuickWrap)adminQuickWrap.style.display=isAdminAccount(me)?'block':'none';
   checkMute();updateOnline();
   await loadMessages();
   connectPoll();
@@ -1382,6 +1486,7 @@ async function confirmMute(){
 function openAvatarModal(){newModalAvatar=null;const p=document.getElementById('modalAvatarPreview');p.innerHTML=me.avatar?`<img src="${me.avatar}">`:'';if(!me.avatar)p.textContent=me.nickname[0].toUpperCase();document.getElementById('avatarModal').classList.add('show');}
 function closeAvatarModal(){document.getElementById('avatarModal').classList.remove('show');newModalAvatar=null;}
 document.getElementById('avatarModal').addEventListener('click',e=>{if(e.target===document.getElementById('avatarModal'))closeAvatarModal();});
+document.getElementById('adminPanelModal').addEventListener('click',e=>{if(e.target===document.getElementById('adminPanelModal'))closeAdminPanel();});
 document.getElementById('modalAvatarInput').addEventListener('change',function(){const f=this.files[0];if(!f)return;const r=new FileReader();r.onload=async e=>{newModalAvatar=await cropCircle(e.target.result);document.getElementById('modalAvatarPreview').innerHTML=`<img src="${newModalAvatar}">`;};r.readAsDataURL(f);});
 async function saveAvatar(){if(!newModalAvatar){closeAvatarModal();return;}const btn=document.getElementById('saveAvatarBtn');btn.disabled=true;btn.textContent='Сохраняем...';try{const _ar=await fetch(`${SUPABASE_URL}/rest/v1/rpc/update_avatar`,{method:'POST',headers:H,body:JSON.stringify({p_user_id:me.id,p_avatar:newModalAvatar})});if(!_ar.ok)throw new Error();me.avatar=newModalAvatar;updateSidebar();closeAvatarModal();showToast('Аватар обновлён!');}catch{showToast('Ошибка');}btn.disabled=false;btn.textContent='Сохранить';}
 
@@ -1408,6 +1513,130 @@ async function adminDeleteAllUsers(){
   }catch{showToast('Ошибка');}
 }
 function adminClearChat(){document.getElementById('adminActionsMenu').classList.remove('open');document.getElementById('clearChatModal').classList.add('show');}
+function adminPanelStatus(text,isError=false){
+  const el=document.getElementById('adminPanelStatus');
+  if(!el)return;
+  el.textContent=text;
+  el.style.color=isError?'#f87171':'var(--text2)';
+}
+function normalizeAdminRows(data){
+  if(Array.isArray(data))return data;
+  if(Array.isArray(data?.rows))return data.rows;
+  if(Array.isArray(data?.items))return data.items;
+  if(Array.isArray(data?.data))return data.data;
+  return [];
+}
+function adminField(row,...keys){
+  for(const key of keys){
+    if(row&&row[key]!=null&&row[key]!=='')return row[key];
+  }
+  return '';
+}
+function adminText(value){
+  if(value==null||value==='')return '—';
+  if(typeof value==='object')return JSON.stringify(value);
+  return String(value);
+}
+function adminEsc(value){return escapeHtml(adminText(value));}
+function openAdminPanel(){
+  if(!isAdminAccount(me))return;
+  document.getElementById('adminActionsMenu').classList.remove('open');
+  document.getElementById('adminPanelModal').classList.add('show');
+  switchAdminTab(adminPanelTab||'users');
+}
+function closeAdminPanel(){
+  document.getElementById('adminPanelModal').classList.remove('show');
+}
+function switchAdminTab(tab){
+  adminPanelTab=tab;
+  document.querySelectorAll('[data-admin-tab]').forEach(btn=>btn.classList.toggle('active',btn.dataset.adminTab===tab));
+  renderAdminPanel();
+  if(!adminPanelLoaded[tab])loadAdminPanel();
+}
+function matchesAdminSearch(row,needle){
+  if(!needle)return true;
+  const text=Object.values(row||{}).map(v=>typeof v==='object'?JSON.stringify(v):String(v??'')).join(' ').toLowerCase();
+  return text.includes(needle);
+}
+async function loadAdminPanel(force=false){
+  if(!isAdminAccount(me))return;
+  const tab=adminPanelTab||'users';
+  if(adminPanelLoaded[tab]&&!force){renderAdminPanel();return;}
+  const rpcMap={users:'bundle_admin_users',messages:'bundle_admin_messages',sessions:'bundle_admin_sessions'};
+  adminPanelStatus('Загружаем...');
+  try{
+    const raw=await callRpc(rpcMap[tab],{p_token:getSessionToken()});
+    adminPanelData[tab]=normalizeAdminRows(raw);
+    adminPanelLoaded[tab]=true;
+    renderAdminPanel();
+  }catch(e){
+    console.error('admin panel load error:',e);
+    adminPanelStatus('Ошибка загрузки: '+(e?.message||'unknown'),true);
+  }
+}
+async function adminDeleteEntry(kind,id){
+  if(!id)return;
+  if(!await customConfirm('Удалить сообщение?','Оно исчезнет из базы для всех.'))return;
+  try{
+    await deleteMessageSecure(kind,id);
+    adminPanelData.messages=adminPanelData.messages.filter(row=>String(adminField(row,'public_id','id'))!==String(id));
+    renderAdminPanel();
+    showToast('Сообщение удалено');
+  }catch(e){
+    console.error(e);
+    showToast('Не удалось удалить сообщение');
+  }
+}
+function renderAdminUsers(rows){
+  return `<div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Аккаунт</th><th>Username</th><th>Email</th><th>Password Hash</th><th>Mute</th><th>Last Seen</th></tr></thead><tbody>${rows.map(row=>`
+    <tr>
+      <td><strong>${adminEsc(adminField(row,'nickname'))}</strong><div class="admin-cell-code">${adminEsc(adminField(row,'public_id','id'))}</div></td>
+      <td><div>@${adminEsc(adminField(row,'username')||'—')}</div><div class="admin-cell-code">${adminEsc(adminField(row,'id'))}</div></td>
+      <td>${adminEsc(adminField(row,'email'))}</td>
+      <td class="admin-cell-code">${adminEsc(adminField(row,'password_hash'))}</td>
+      <td>${adminEsc(adminField(row,'muted_until'))}</td>
+      <td>${adminEsc(adminField(row,'last_seen','created_at'))}</td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
+function renderAdminMessages(rows){
+  return `<div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Тип</th><th>ID</th><th>Кто писал</th><th>Кому</th><th>Текст / файл</th><th>Дата</th><th>Действие</th></tr></thead><tbody>${rows.map(row=>`
+    <tr>
+      <td><span class="admin-chip">${adminEsc(adminField(row,'kind','type'))}</span></td>
+      <td><div class="admin-cell-code">${adminEsc(adminField(row,'public_id','id'))}</div><div class="admin-cell-code">${adminEsc(adminField(row,'raw_id'))}</div></td>
+      <td><strong>${adminEsc(adminField(row,'sender_nick','user_nickname','from_nick'))}</strong><div class="admin-cell-code">${adminEsc(adminField(row,'sender_id','user_id','from_id'))}</div></td>
+      <td><div>${adminEsc(adminField(row,'receiver_nick','to_nick'))}</div><div class="admin-cell-code">${adminEsc(adminField(row,'receiver_id','to_id'))}</div></td>
+      <td class="admin-cell-long">${adminEsc(adminField(row,'content'))}</td>
+      <td>${adminEsc(adminField(row,'created_at'))}</td>
+      <td><button class="admin-action-btn-sm" onclick="adminDeleteEntry('${adminField(row,'kind','type')==='dm'?'dm':'global'}','${String(adminField(row,'public_id','id')).replace(/'/g,'&#39;')}')">Удалить</button></td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
+function renderAdminSessions(rows){
+  return `<div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Session</th><th>User</th><th>Token</th><th>Создана / Активность</th></tr></thead><tbody>${rows.map(row=>`
+    <tr>
+      <td><div class="admin-cell-code">${adminEsc(adminField(row,'public_id','id'))}</div></td>
+      <td><strong>${adminEsc(adminField(row,'nickname','user_nickname'))}</strong><div class="admin-cell-code">${adminEsc(adminField(row,'user_id'))}</div></td>
+      <td class="admin-cell-code">${adminEsc(adminField(row,'token','session_token'))}</td>
+      <td>${adminEsc(adminField(row,'created_at','last_seen','updated_at','expires_at'))}</td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
+function renderAdminPanel(){
+  const host=document.getElementById('adminPanelContent');
+  if(!host)return;
+  const needle=(document.getElementById('adminPanelSearch')?.value||'').trim().toLowerCase();
+  const rows=(adminPanelData[adminPanelTab]||[]).filter(row=>matchesAdminSearch(row,needle));
+  if(!adminPanelLoaded[adminPanelTab]){
+    host.innerHTML='';
+    adminPanelStatus('Открыто. Загружаем данные...');
+    return;
+  }
+  if(!rows.length){
+    host.innerHTML='';
+    adminPanelStatus('Ничего не найдено');
+    return;
+  }
+  adminPanelStatus(`Найдено записей: ${rows.length}${adminPanelTab==='users'?' • пароль показывается только как hash':''}`);
+  host.innerHTML=adminPanelTab==='users'?renderAdminUsers(rows):adminPanelTab==='messages'?renderAdminMessages(rows):renderAdminSessions(rows);
+}
 async function confirmClearChat(){
   document.getElementById('clearChatModal').classList.remove('show');
   try{
@@ -1526,18 +1755,18 @@ function renderMsg(msg,scroll){
 async function showCtxMenu(e,msg){
   ctxMsg=msg;
   const menu=document.getElementById('msgMenu');
-  const amAdm=isAdmin(me?.nickname||'');
+  const amAdm=isAdminAccount(me);
   const own=(msg.user_id&&msg.user_id===me?.id)||(msg.from_id&&msg.from_id===me?.id);
   const tgAdm=isAdmin(msg.user_nickname||'');
   const isDM=currentMode==='dm';
   document.getElementById('ctxDelBtn').style.display=(own||amAdm)?'flex':'none';
-  let targetMuted=false;
+  let targetMuted=null;
   if(amAdm&&!own&&!tgAdm&&!isDM){
     try{const u=await dbQ('bundle_users_public',{filter:`id=eq.${msg.user_id}`,select:'muted_until'});
-      targetMuted=u&&u[0]&&u[0].muted_until&&new Date(u[0].muted_until)>new Date();}catch{}
+      targetMuted=!!(u&&u[0]&&u[0].muted_until&&new Date(u[0].muted_until)>new Date());}catch{}
   }
-  document.getElementById('ctxMuteBtn').style.display=(amAdm&&!own&&!tgAdm&&!targetMuted&&!isDM)?'flex':'none';
-  document.getElementById('ctxUnmuteBtn').style.display=(amAdm&&!own&&!tgAdm&&targetMuted&&!isDM)?'flex':'none';
+  document.getElementById('ctxMuteBtn').style.display=(amAdm&&!own&&!tgAdm&&targetMuted!==true&&!isDM)?'flex':'none';
+  document.getElementById('ctxUnmuteBtn').style.display=(amAdm&&!own&&!tgAdm&&!isDM)?'flex':'none';
   menu.style.display='block';
   menu.style.opacity='0';menu.style.transform='scale(0.95)';
   requestAnimationFrame(()=>{menu.style.opacity='1';menu.style.transform='scale(1)';});
@@ -1657,14 +1886,7 @@ async function updateOnline(){
       const rows=await callRpc('verify_session',{p_token:token});
       if(rows&&rows.length>0){
         const u=rows[0];
-        // Validate - must have password_hash or be admin
-        if(!u.password_hash&&!isAdmin(u.nickname)&&!isAdminUser(u.username)){
-          localStorage.removeItem('bundle-session');
-          document.body.classList.remove('checking');
-          document.getElementById('authScreen').classList.add('active');
-          return;
-        }
-        me={id:u.user_id||rows[0].user_id,nickname:u.nickname,username:u.username,avatar:u.avatar,muted_until:u.muted_until,password_hash:u.password_hash,sessionToken:token};
+        me={id:u.user_id||rows[0].user_id,nickname:u.nickname,username:u.username,avatar:u.avatar,muted_until:u.muted_until,sessionToken:token};
         // Fix: verify_session returns user_id field
         if(!me.id){me.id=u.user_id;}
         callRpc('update_last_seen',{p_user_id:me.id}).catch(()=>{});
@@ -2322,6 +2544,14 @@ function ensureDMListItem(target){
   if(!dmEl){
     dmEl=buildDMItem(target);
     document.getElementById('dmList').appendChild(dmEl);
+  }else{
+    const active=dmEl.classList.contains('active');
+    const unread=dmUnread[target.id]||0;
+    const replacement=buildDMItem(target);
+    if(active)replacement.classList.add('active');
+    dmEl.replaceWith(replacement);
+    dmEl=replacement;
+    if(unread)showDMBadge(target.id,unread);
   }
   return dmEl;
 }
@@ -2860,6 +3090,7 @@ if(document.getElementById('chatScreen').classList.contains('active')&&me){
 document.getElementById('msgInput')?.addEventListener('input',()=>handleTypingInput());
 handleFileSelect=function(e){
   const f=e.target.files[0];if(!f)return;
+  closeAttachChooser();
   attachFile=f;
   if(isImageFile(f)){
     const r=new FileReader();r.onload=ev=>{
@@ -3537,6 +3768,227 @@ window.sendMessage=async function(){
     throw e;
   }
 };
+switchTab=function(tab){
+  ['login','register'].forEach(f=>{
+    const form=document.getElementById(f+'Form');
+    if(form)form.classList.toggle('active',f===tab);
+    const btn=document.getElementById('tab'+f[0].toUpperCase()+f.slice(1));
+    if(btn)btn.classList.toggle('active',f===tab);
+  });
+  const authTabs=document.getElementById('authTabs');
+  if(authTabs)authTabs.style.display='';
+  ['loginErr','regErr'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent='';});
+};
+handleLogin=async function(){
+  const raw=document.getElementById('loginNick').value.trim();
+  const pass=document.getElementById('loginPass').value;
+  const err=document.getElementById('loginErr'); if(err)err.textContent='';
+  if(!raw){if(err)err.textContent='Введи никнейм или @username';return;}
+  if(!pass){if(err)err.textContent='Введи пароль';return;}
+  const btn=document.getElementById('loginBtn'); if(btn){btn.disabled=true;btn.textContent='Проверяем...';}
+  try{
+    const isHandle=raw.startsWith('@');
+    const search=isHandle?raw.slice(1):raw;
+    const filter=isHandle?`username=ilike.${encodeURIComponent(search)}`:`nickname=ilike.${encodeURIComponent(search)}`;
+    const users=await dbQ('bundle_users_public',{filter,select:'id,nickname,username,avatar,muted_until'});
+    if(!users||!users.length){
+      if(err)err.textContent='Аккаунт не найден';
+      if(btn){btn.disabled=false;btn.textContent='Войти';}
+      return;
+    }
+    const user=users[0];
+    const nickForCheck=isAdminUser(user.username)?ADMIN_NICK_LOWER:user.nickname;
+    const ok=await callRpc('check_nick_password',{p_nick:nickForCheck,p_pass:pass});
+    if(ok!==true){
+      if(err)err.textContent='Неверный пароль';
+      if(btn){btn.disabled=false;btn.textContent='Войти';}
+      return;
+    }
+    me=user;
+    await finishLogin();
+  }catch(e){
+    console.error(e);
+    if(err)err.textContent='Ошибка подключения';
+  }
+  if(btn){btn.disabled=false;btn.textContent='Войти';}
+};
+sendOtp=async function(){ return true; };
+clearOtpBoxes=function(){};
+otpInput=function(){};
+otpKey=function(){};
+verifyOtp=async function(){ showToast('Почтовое подтверждение отключено'); };
+resendOtp=async function(){ showToast('Почтовое подтверждение отключено'); };
+handleForgot=async function(){ showToast('Почтовое восстановление отключено'); };
+handleReset=async function(){ showToast('Сброс по почте отключён'); };
+function adminMessageLabel(row){
+  if(row?.image_url)return 'Фото';
+  const parsed=splitMessagePayload(row?.content||'');
+  if(parsed.file)return `Файл: ${parsed.file.name||'без имени'}`;
+  return row?.content||'—';
+}
+async function adminDeleteUser(userId,nick){
+  if(!userId)return;
+  if(!await customConfirm('Удалить аккаунт?',(nick?`Аккаунт ${nick}`:'Аккаунт')+' будет удалён вместе с сессиями.'))return;
+  try{
+    await callRpc('bundle_admin_delete_user',{p_token:getSessionToken(),p_target_user_id:String(userId)});
+    adminPanelData.users=adminPanelData.users.filter(row=>String(adminField(row,'id','public_id'))!==String(userId));
+    renderAdminPanel();
+    showToast('Аккаунт удалён');
+  }catch(e){
+    console.error(e);
+    showToast('Не удалось удалить аккаунт');
+  }
+}
+renderAdminUsers=function(rows){
+  return `<div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Аккаунт</th><th>Username</th><th>ID</th><th>Mute</th><th>Last Seen</th><th>Действие</th></tr></thead><tbody>${rows.map(row=>`
+    <tr>
+      <td><strong>${adminEsc(adminField(row,'nickname'))}</strong></td>
+      <td>@${adminEsc(adminField(row,'username')||'—')}</td>
+      <td class="admin-cell-code">${adminEsc(adminField(row,'public_id','id'))}</td>
+      <td>${adminEsc(adminField(row,'muted_until'))}</td>
+      <td>${adminEsc(adminField(row,'last_seen','created_at'))}</td>
+      <td>${String(adminField(row,'username')).toLowerCase()===ADMIN_USERNAME?'<span class="admin-chip">Главный админ</span>':`<button class="admin-action-btn-sm" onclick="adminDeleteUser('${String(adminField(row,'id','public_id')).replace(/'/g,'&#39;')}','${escapeHtml(String(adminField(row,'nickname')).replace(/'/g,'&#39;'))}')">Удалить</button>`}</td>
+    </tr>`).join('')}</tbody></table></div>`;
+};
+adminResetAvatars=async function(){
+  const menu=document.getElementById('adminActionsMenu');
+  if(menu)menu.classList.remove('open');
+  if(!await customConfirm('РЎР±СЂРѕСЃРёС‚СЊ Р°РІР°С‚Р°СЂС‹?','РђРІР°С‚Р°СЂС‹ РІСЃРµС… РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№ Р±СѓРґСѓС‚ СѓРґР°Р»РµРЅС‹.'))return;
+  try{
+    await callRpc('bundle_admin_reset_avatars',{p_token:getSessionToken()});
+    if(me){
+      me.avatar=null;
+      updateSidebar();
+    }
+    showToast('РђРІР°С‚Р°СЂС‹ СЃР±СЂРѕС€РµРЅС‹ вњ…');
+  }catch(e){
+    console.error(e);
+    showToast('РќРµ СѓРґР°Р»РѕСЃСЊ СЃР±СЂРѕСЃРёС‚СЊ Р°РІР°С‚Р°СЂС‹');
+  }
+};
+saveAvatar=async function(){
+  if(!newModalAvatar){closeAvatarModal();return;}
+  const btn=document.getElementById('saveAvatarBtn');
+  if(btn){btn.disabled=true;btn.textContent='Сохраняем...';}
+  try{
+    await callRpc('bundle_secure_update_avatar',{p_token:getSessionToken(),p_avatar:newModalAvatar});
+    me.avatar=newModalAvatar;
+    updateSidebar();
+    closeAvatarModal();
+    showToast('Аватар обновлён!');
+  }catch(e){
+    console.error(e);
+    showToast('Ошибка');
+  }
+  if(btn){btn.disabled=false;btn.textContent='Сохранить';}
+};
+renderAdminUsers=function(rows){
+  return `<div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Аккаунт</th><th>Username</th><th>ID</th><th>Password Hash</th><th>Mute</th><th>Last Seen</th><th>Действие</th></tr></thead><tbody>${rows.map(row=>`
+    <tr>
+      <td><strong>${adminEsc(adminField(row,'nickname'))}</strong></td>
+      <td>@${adminEsc(adminField(row,'username')||'—')}</td>
+      <td class="admin-cell-code">${adminEsc(adminField(row,'public_id','id'))}</td>
+      <td class="admin-cell-code">${adminEsc(adminField(row,'password_hash')||'—')}</td>
+      <td>${adminEsc(adminField(row,'muted_until'))}</td>
+      <td>${adminEsc(adminField(row,'last_seen','created_at'))}</td>
+      <td>${String(adminField(row,'username')).toLowerCase()===ADMIN_USERNAME?'<span class="admin-chip">Главный админ</span>':`<button class="admin-action-btn-sm" onclick="adminDeleteUser('${String(adminField(row,'id','public_id')).replace(/'/g,'&#39;')}','${escapeHtml(String(adminField(row,'nickname')).replace(/'/g,'&#39;'))}')">Удалить</button>`}</td>
+    </tr>`).join('')}</tbody></table></div>`;
+};
+adminResetAvatars=async function(){
+  const menu=document.getElementById('adminActionsMenu');
+  if(menu)menu.classList.remove('open');
+  if(!await customConfirm('Сбросить аватарки?','Аватарки всех пользователей, кроме админа, будут удалены.'))return;
+  try{
+    await callRpc('bundle_admin_reset_avatars',{p_token:getSessionToken()});
+    if(currentDMUser&&!isAdminAccount(currentDMUser))currentDMUser={...currentDMUser,avatar:null};
+    if(profileUser&&!isAdminAccount(profileUser)){
+      profileUser={...profileUser,avatar:null};
+      if(document.getElementById('profileLayer')?.classList.contains('show'))renderProfileUser(profileUser);
+    }
+    updateSidebar();
+    loadMessages().catch(()=>{});
+    loadDMChats().catch(()=>{});
+    if(currentMode==='dm'&&currentDMUser)openDMChat(currentDMUser).catch(()=>{});
+    if(document.getElementById('adminPanelModal')?.classList.contains('show'))loadAdminPanel(true).catch(()=>{});
+    showToast('Аватарки сброшены');
+  }catch(e){
+    console.error(e);
+    showToast('Не удалось сбросить аватарки');
+  }
+};
+renderAdminMessages=function(rows){
+  return `<div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Тип</th><th>ID</th><th>Кто писал</th><th>Кому</th><th>Содержимое</th><th>Дата</th><th>Действие</th></tr></thead><tbody>${rows.map(row=>`
+    <tr>
+      <td><span class="admin-chip">${adminEsc(adminField(row,'kind','type'))}</span></td>
+      <td><div class="admin-cell-code">${adminEsc(adminField(row,'public_id','id'))}</div><div class="admin-cell-code">${adminEsc(adminField(row,'raw_id'))}</div></td>
+      <td><strong>${adminEsc(adminField(row,'sender_nick','user_nickname','from_nick'))}</strong><div class="admin-cell-code">${adminEsc(adminField(row,'sender_id','user_id','from_id'))}</div></td>
+      <td><div>${adminEsc(adminField(row,'receiver_nick','to_nick'))}</div><div class="admin-cell-code">${adminEsc(adminField(row,'receiver_id','to_id'))}</div></td>
+      <td class="admin-cell-long">${adminEsc(adminMessageLabel(row))}</td>
+      <td>${adminEsc(adminField(row,'created_at'))}</td>
+      <td><button class="admin-action-btn-sm" onclick="adminDeleteEntry('${adminField(row,'kind','type')==='dm'?'dm':'global'}','${String(adminField(row,'public_id','id')).replace(/'/g,'&#39;')}')">Удалить</button></td>
+    </tr>`).join('')}</tbody></table></div>`;
+};
+loadAdminPanel=(function(orig){
+  return async function(force=false){
+    await orig(force);
+    const adminMenuWrap=document.getElementById('adminMenuWrap');
+    if(adminMenuWrap)adminMenuWrap.style.display=isAdminAccount(me)?'block':'none';
+  };
+})(loadAdminPanel);
+function ensureTopAdminMenu(){
+  const misplaced=document.querySelector('#authScreen #adminMenuWrap');
+  if(misplaced)misplaced.remove();
+  const topbar=document.querySelector('.chat-topbar');
+  if(!topbar||topbar.querySelector('#adminMenuWrap'))return;
+  const wrap=document.createElement('div');
+  wrap.id='adminMenuWrap';
+  wrap.style.cssText='display:none;position:relative';
+  wrap.innerHTML=`
+    <button class="admin-menu-btn" onclick="toggleAdminMenu()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></button>
+    <div id="adminActionsMenu">
+      <div class="admin-action-opt" onclick="openAdminPanel()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M7 20h10"/><path d="M9 8h6"/><path d="M9 12h3"/></svg>Админ панель</div>
+      <div class="admin-action-opt danger" onclick="adminClearChat()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>Очистить чат</div>
+      <div class="admin-action-opt" onclick="adminResetAvatars()" style="color:#facc15"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/><line x1="1" y1="1" x2="23" y2="23"/></svg>Сбросить все авы</div>
+      <div class="admin-action-opt danger" onclick="adminDeleteAllUsers()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="23" y1="11" x2="17" y2="11"/></svg>Удалить всех юзеров</div>
+    </div>`;
+  topbar.appendChild(wrap);
+}
+ensureTopAdminMenu();
+toggleAdminMenu=function(){
+  const menu=document.getElementById('adminActionsMenu');
+  if(menu)menu.classList.toggle('open');
+};
+openAdminPanel=(function(orig){
+  return function(){
+    if(!isAdminAccount(me))return;
+    const menu=document.getElementById('adminActionsMenu');
+    if(menu)menu.classList.remove('open');
+    const modal=document.getElementById('adminPanelModal');
+    if(modal)modal.classList.add('show');
+    return orig();
+  };
+})(openAdminPanel);
+adminResetAvatars=(function(orig){
+  return async function(){
+    const menu=document.getElementById('adminActionsMenu');
+    if(menu)menu.classList.remove('open');
+    return orig();
+  };
+})(adminResetAvatars);
+adminDeleteAllUsers=(function(orig){
+  return async function(){
+    const menu=document.getElementById('adminActionsMenu');
+    if(menu)menu.classList.remove('open');
+    return orig();
+  };
+})(adminDeleteAllUsers);
+adminClearChat=(function(orig){
+  return function(){
+    const menu=document.getElementById('adminActionsMenu');
+    if(menu)menu.classList.remove('open');
+    return orig();
+  };
+})(adminClearChat);
 </script>
 </body>
 </html>
