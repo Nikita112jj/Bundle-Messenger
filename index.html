@@ -3,10 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob: https://fonts.gstatic.com https://fonts.googleapis.com https://cdn.jsdelivr.net https://vjqrfojuxysihxsyuhly.supabase.co https://challenges.cloudflare.com; img-src 'self' data: blob: https://vjqrfojuxysihxsyuhly.supabase.co https://challenges.cloudflare.com; connect-src https://vjqrfojuxysihxsyuhly.supabase.co wss://vjqrfojuxysihxsyuhly.supabase.co https://cdn.jsdelivr.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; object-src 'none'; base-uri 'none';">
 <title>Bundle</title>
 <link rel="icon" type="image/png" href="https://vjqrfojuxysihxsyuhly.supabase.co/storage/v1/object/public/icons/bundleico.png">
 <link rel="shortcut icon" href="https://vjqrfojuxysihxsyuhly.supabase.co/storage/v1/object/public/icons/bundleico.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
   :root{--bg:#0e0e10;--bg2:#16161a;--bg3:#1e1e24;--border:#2a2a35;--text:#f0f0f5;--text2:#8888a0;--accent:#7c5cfc;--accent2:#a78bfa;--accent-glow:rgba(124,92,252,0.25);--msg-own:#2a1f5c;--msg-other:#1e1e24;--online:#22c55e;--sidebar:260px;}
@@ -16,6 +18,17 @@
   .screen{display:none;width:100%;height:100vh;}
   .screen.active{display:flex;}
   body.checking .screen{display:none!important;}
+  .human-gate{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:18px;background:radial-gradient(circle at top left,rgba(124,92,252,.22),transparent 36%),radial-gradient(circle at bottom right,rgba(56,189,248,.14),transparent 34%),rgba(8,8,12,.94);backdrop-filter:blur(8px);z-index:1200;}
+  body.checking .human-gate{display:flex;}
+  .human-gate-card{width:min(460px,100%);background:linear-gradient(180deg,rgba(22,22,26,.98),rgba(14,14,18,.98));border:1px solid rgba(167,139,250,.22);border-radius:28px;padding:28px 24px;box-shadow:0 28px 90px rgba(0,0,0,.45);}
+  .human-gate-badge{width:56px;height:56px;border-radius:18px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--accent),#38bdf8);color:#fff;margin-bottom:16px;box-shadow:0 16px 36px rgba(124,92,252,.28);}
+  .human-gate-title{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;line-height:1.05;margin-bottom:8px;}
+  .human-gate-sub{color:var(--text2);font-size:14px;line-height:1.55;margin-bottom:18px;}
+  .human-gate-box{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:18px;padding:14px;display:flex;justify-content:center;min-height:92px;}
+  .human-gate-note{margin-top:14px;font-size:12px;color:var(--text2);line-height:1.45;}
+  .turnstile-inline{display:flex;justify-content:center;margin:12px 0 6px;}
+  .turnstile-help{font-size:12px;color:var(--text2);text-align:center;margin-top:6px;line-height:1.45;}
+  .turnstile-help strong{color:var(--text);}
 
   /* AUTH */
   #authScreen{align-items:center;justify-content:center;background:var(--bg);position:relative;overflow:hidden;}
@@ -396,6 +409,20 @@
 </style>
 </head>
 <body class="checking">
+<div class="human-gate" id="humanGate">
+  <div class="human-gate-card">
+    <div class="human-gate-badge">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 4v5c0 5-3.5 8-7 9-3.5-1-7-4-7-9V7l7-4z"/><path d="M9 12l2 2 4-4"/></svg>
+    </div>
+    <div class="human-gate-title">Подтверди, что ты не робот</div>
+    <div class="human-gate-sub">Сначала проходим Cloudflare Turnstile, потом сразу открываем регистрацию. Так мы режем мусор ещё до формы.</div>
+    <div class="human-gate-box">
+      <div id="entryTurnstile"></div>
+    </div>
+    <div class="turnstile-help" id="entryTurnstileHelp">Ждём Cloudflare Turnstile…</div>
+    <div class="human-gate-note">Turnstile работает только на <strong>http/https</strong>. Если страница открыта как <strong>file://</strong>, проверка не завершится, и это нормально.</div>
+  </div>
+</div>
 
 <!-- ═══ AUTH ═══ -->
 <div class="screen" id="authScreen">
@@ -466,6 +493,10 @@
         <label>ПОВТОРИ ПАРОЛЬ</label>
         <input type="password" id="regPass2" placeholder="••••••••" onkeydown="if(event.key==='Enter')handleRegister()">
       </div>
+      <div class="turnstile-inline">
+        <div id="registerTurnstile"></div>
+      </div>
+      <div class="turnstile-help" id="registerTurnstileHelp">Подтверди Cloudflare Turnstile перед регистрацией.</div>
       <button class="btn-primary" id="registerBtn" onclick="handleRegister()">Создать аккаунт</button>
       <div class="err-msg" id="regErr"></div>
     </div>
@@ -544,7 +575,7 @@
         </button>
         <input type="file" id="fileInput" accept="image/*" onchange="handleFileSelect(event)">
         <textarea id="msgInput" placeholder="Написать сообщение..." rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
-        <button class="send-btn" id="sendBtn" onclick="sendMessage()" disabled>
+        <button class="send-btn" id="sendBtn" onclick="window.sendMessage()" disabled>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         </button>
       </div>
@@ -711,6 +742,7 @@ const STORAGE_BUCKET = 'bundle-images'; // создай bucket с таким и�
 
 const ADMIN_NICK_LOWER  = 'neked';
 const ADMIN_USERNAME    = 'neked';
+const TURNSTILE_SITEKEY = window.BUNDLE_TURNSTILE_SITEKEY || '1x00000000000000000000AA';
 
 const H = {
   'apikey': SUPABASE_KEY,
@@ -868,6 +900,9 @@ let profileUser=null;
 let adminPanelTab='users';
 let adminPanelData={users:[],messages:[],sessions:[]};
 let adminPanelLoaded={users:false,messages:false,sessions:false};
+let entryTurnstileWidgetId=null,registerTurnstileWidgetId=null;
+let entryTurnstileToken='',registerTurnstileToken='';
+let humanGatePassed=false;
 const brokenMediaUrls=new Set();
 const EMOJI_SET=['😀','😁','😂','🤣','😊','😍','🥰','😘','😎','🥳','🤝','🙏','🔥','💜','✨','🎉','👍','👀','🤔','😴','🥺','😭','😡','🤯','😅','😇','🤗','😏','😜','🤩','💯','❤️','🫶','😌','🤟','👑','🍓','🌙','⚡','🎵'];
 let dmListBootUntil=0;
@@ -901,9 +936,9 @@ document.getElementById('avatarInput').addEventListener('change',function(){
 });
 
 // ── UTILS ──
-const isAdmin=nick=>(nick||'').trim().toLowerCase()===ADMIN_NICK_LOWER;
-const isAdminUser=u=>(u||'').trim().toLowerCase()===ADMIN_USERNAME;
-const isAdminAccount=(user=me)=>!!user&&(isAdmin(user.nickname)||isAdminUser(user.username));
+let isAdmin=nick=>(nick||'').trim().toLowerCase()===ADMIN_NICK_LOWER;
+let isAdminUser=u=>(u||'').trim().toLowerCase()===ADMIN_USERNAME;
+let isAdminAccount=(user=me)=>!!user&&(isAdmin(user.nickname)||isAdminUser(user.username));
 const hashP=p=>btoa(unescape(encodeURIComponent(p)));
 const genCode=()=>String(Math.floor(10000+Math.random()*90000));
 function showToast(m,d=3000){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),d);}
@@ -1206,6 +1241,81 @@ ensureEnhancedUI=function(){
 ensureEnhancedUI();
 
 // ── EMAIL OTP ──
+function markHumanGateReady(ok,message=''){
+  const help=document.getElementById('entryTurnstileHelp');
+  if(help){
+    help.textContent=message||(ok?'Проверка пройдена, открываем регистрацию…':'Ждём Cloudflare Turnstile…');
+    help.style.color=ok?'#86efac':'';
+  }
+}
+function markRegisterTurnstileState(ok,message=''){
+  const help=document.getElementById('registerTurnstileHelp');
+  if(help){
+    help.textContent=message||(ok?'Turnstile пройден, можно регистрироваться.':'Подтверди Cloudflare Turnstile перед регистрацией.');
+    help.style.color=ok?'#86efac':'';
+  }
+}
+function openRegisterAfterHumanCheck(){
+  humanGatePassed=true;
+  document.body.classList.remove('checking');
+  const auth=document.getElementById('authScreen');
+  if(auth)auth.classList.add('active');
+  switchTab('register');
+}
+function initTurnstileWidgets(){
+  if(typeof window.turnstile==='undefined')return false;
+  if(!entryTurnstileWidgetId){
+    entryTurnstileWidgetId=window.turnstile.render('#entryTurnstile',{
+      sitekey:TURNSTILE_SITEKEY,
+      theme:'auto',
+      callback:function(token){
+        entryTurnstileToken=token||'';
+        markHumanGateReady(true);
+        setTimeout(openRegisterAfterHumanCheck,180);
+      },
+      'expired-callback':function(){
+        entryTurnstileToken='';
+        markHumanGateReady(false,'Проверка истекла, пройди Turnstile ещё раз.');
+      },
+      'error-callback':function(){
+        entryTurnstileToken='';
+        markHumanGateReady(false,'Turnstile не загрузился. На file:// это ожидаемо, нужен http/https.');
+      }
+    });
+  }
+  if(!registerTurnstileWidgetId){
+    registerTurnstileWidgetId=window.turnstile.render('#registerTurnstile',{
+      sitekey:TURNSTILE_SITEKEY,
+      theme:'auto',
+      callback:function(token){
+        registerTurnstileToken=token||'';
+        markRegisterTurnstileState(true);
+      },
+      'expired-callback':function(){
+        registerTurnstileToken='';
+        markRegisterTurnstileState(false,'Проверка истекла, обнови Turnstile.');
+      },
+      'error-callback':function(){
+        registerTurnstileToken='';
+        markRegisterTurnstileState(false,'Turnstile не загрузился. На file:// это ожидаемо, нужен http/https.');
+      }
+    });
+  }
+  return true;
+}
+function ensureTurnstileBoot(){
+  if(humanGatePassed)return;
+  if(initTurnstileWidgets())return;
+  setTimeout(ensureTurnstileBoot,250);
+}
+function resetRegisterTurnstile(){
+  registerTurnstileToken='';
+  markRegisterTurnstileState(false);
+  if(typeof window.turnstile!=='undefined' && registerTurnstileWidgetId!==null){
+    try{window.turnstile.reset(registerTurnstileWidgetId);}catch{}
+  }
+}
+ensureTurnstileBoot();
 async function sendOtp(){ return true; }
 
 // ── TABS ──
@@ -1411,6 +1521,11 @@ function updateSidebar(){
   } else {
     av.className='my-avatar';
   }
+  const adminMenuWrap=document.getElementById('adminMenuWrap');
+  const adminQuickWrap=document.getElementById('adminQuickWrap');
+  const visible=isAdminAccount(me);
+  if(adminMenuWrap)adminMenuWrap.style.display=visible?'block':'none';
+  if(adminQuickWrap)adminQuickWrap.style.display=visible?'block':'none';
 }
 const canSend=()=>!isMuted()&&(!!(document.getElementById('msgInput').value.trim())||!!attachFile);
 
@@ -3459,6 +3574,7 @@ window.sendMessage=async function(){
     if(pendingLeft>0)await new Promise(r=>setTimeout(r,pendingLeft));
     if(pendingUploadCleanup)pendingUploadCleanup();
     globalRenderSignature='';
+    try{await loadMessages(true);}catch{}
   }catch(e){
     const pendingLeft=380-(Date.now()-pendingShownAt);
     if(pendingLeft>0)await new Promise(r=>setTimeout(r,pendingLeft));
@@ -4106,6 +4222,221 @@ deleteMessageSecure=async function(mode,id){
   }
   return true;
 };
+const CLIENT_UPLOAD_POLICY={
+  maxSize:20*1024*1024,
+  blockedExts:new Set(['exe','bat','cmd','ps1','js','vbs','msi','scr','com','jar']),
+  allowedExts:new Set(['png','jpg','jpeg','gif','webp','bmp','svg','pdf','txt','zip','rar','7z','doc','docx','xls','xlsx','ppt','pptx','mp3','ogg','wav','mp4','webm','mov','mkv']),
+  allowedMimePrefixes:['image/','audio/','video/'],
+  allowedMimes:new Set([
+    'application/pdf',
+    'text/plain',
+    'application/zip',
+    'application/x-zip-compressed',
+    'application/x-rar-compressed',
+    'application/x-7z-compressed',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+  ])
+};
+function getFileExtSafe(file){
+  return String(file?.name||'').split('.').pop().toLowerCase().trim();
+}
+function validateClientAttachment(file){
+  if(!file)return {ok:false,message:'Файл не выбран'};
+  const ext=getFileExtSafe(file);
+  const mime=String(file.type||'').toLowerCase();
+  if((Number(file.size)||0)>CLIENT_UPLOAD_POLICY.maxSize){
+    return {ok:false,message:'Файл слишком большой. Лимит 20 MB'};
+  }
+  if(ext&&CLIENT_UPLOAD_POLICY.blockedExts.has(ext)){
+    return {ok:false,message:'Этот тип файла запрещён'};
+  }
+  const mimeAllowed=CLIENT_UPLOAD_POLICY.allowedMimePrefixes.some(prefix=>mime.startsWith(prefix))||CLIENT_UPLOAD_POLICY.allowedMimes.has(mime);
+  const extAllowed=ext&&CLIENT_UPLOAD_POLICY.allowedExts.has(ext);
+  if(!mimeAllowed&&!extAllowed){
+    return {ok:false,message:'Тип файла не разрешён'};
+  }
+  return {ok:true};
+}
+isAdmin=(nick='')=>String(nick||'').trim().toLowerCase()===ADMIN_NICK_LOWER;
+isAdminUser=(u='')=>String(u||'').trim().toLowerCase()===ADMIN_USERNAME;
+isAdminAccount=(user=me)=>!!user&&(user.is_admin===true||isAdmin(user.nickname)||isAdminUser(user.username));
+function syncAdminVisibility(){
+  const visible=isAdminAccount(me);
+  const adminMenuWrap=document.getElementById('adminMenuWrap');
+  const adminQuickWrap=document.getElementById('adminQuickWrap');
+  if(adminMenuWrap)adminMenuWrap.style.display=visible?'block':'none';
+  if(adminQuickWrap)adminQuickWrap.style.display=visible?'block':'none';
+}
+onLoginNickInput=function(){
+  const tabs=document.getElementById('authTabs');
+  if(tabs)tabs.style.display='';
+};
+handleLogin=async function(){
+  const raw=document.getElementById('loginNick').value.trim();
+  const pass=document.getElementById('loginPass').value;
+  const err=document.getElementById('loginErr');
+  if(err)err.textContent='';
+  if(!raw){if(err)err.textContent='Введи никнейм или @username';return;}
+  if(!pass){if(err)err.textContent='Введи пароль';return;}
+  const btn=document.getElementById('loginBtn');
+  if(btn){btn.disabled=true;btn.textContent='Проверяем...';}
+  try{
+    const isHandle=raw.startsWith('@');
+    const search=(isHandle?raw.slice(1):raw).trim();
+    const filter=isHandle?`username=ilike.${encodeURIComponent(search)}`:`nickname=ilike.${encodeURIComponent(search)}`;
+    const users=await dbQ('bundle_users_public',{filter,select:'id,nickname,username,avatar,muted_until'});
+    if(!users||users.length===0){
+      if(err)err.textContent='Аккаунт не найден';
+      if(btn){btn.disabled=false;btn.textContent='Войти';}
+      return;
+    }
+    const user=users[0];
+    const ok=await callRpc('check_nick_password',{p_nick:search,p_pass:pass});
+    if(ok!==true){
+      if(err)err.textContent='Неверный пароль';
+      if(btn){btn.disabled=false;btn.textContent='Войти';}
+      return;
+    }
+    me=user;
+    await finishLogin();
+  }catch(e){
+    console.error(e);
+    if(err)err.textContent='Ошибка подключения';
+  }
+  if(btn){btn.disabled=false;btn.textContent='Войти';}
+};
+handleRegister=async function(){
+  const nick=document.getElementById('regNick')?.value.trim()||'';
+  const uname=(document.getElementById('regUsername')?.value||'').trim().toLowerCase().replace(/[^a-z0-9_]/g,'');
+  const pass=document.getElementById('regPass')?.value||'';
+  const pass2=document.getElementById('regPass2')?.value||'';
+  const err=document.getElementById('regErr');
+  if(err)err.textContent='';
+  if(!humanGatePassed){ if(err)err.textContent='Сначала пройди Cloudflare-проверку сверху'; return; }
+  if(!nick){ if(err)err.textContent='Введи никнейм'; return; }
+  if(nick.length<2){ if(err)err.textContent='Никнейм минимум 2 символа'; return; }
+  if(!uname||uname.length<2){ if(err)err.textContent='Введи @username'; return; }
+  if(isAdmin(nick)||isAdminUser(uname)){ if(err)err.textContent='Это имя зарезервировано'; return; }
+  if(!pass||pass.length<4){ if(err)err.textContent='Пароль минимум 4 символа'; return; }
+  if(pass!==pass2){ if(err)err.textContent='Пароли не совпадают'; return; }
+  if(!registerTurnstileToken){ if(err)err.textContent='Подтверди Cloudflare Turnstile'; return; }
+  const btn=document.getElementById('registerBtn');
+  if(btn){btn.disabled=true;btn.textContent='Проверяем...';}
+  try{
+    const bn=await dbQ('bundle_users_public',{filter:`nickname=ilike.${encodeURIComponent(nick)}`,select:'id'});
+    if(bn&&bn.length>0){
+      if(err)err.textContent='Никнейм занят';
+      if(btn){btn.disabled=false;btn.textContent='Создать аккаунт';}
+      resetRegisterTurnstile();
+      return;
+    }
+    const bu=await dbQ('bundle_users_public',{filter:`username=ilike.${encodeURIComponent(uname)}`,select:'id'});
+    if(bu&&bu.length>0){
+      if(err)err.textContent='@username занят';
+      if(btn){btn.disabled=false;btn.textContent='Создать аккаунт';}
+      resetRegisterTurnstile();
+      return;
+    }
+    const uid='u_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
+    await callRpc('register_user',{p_id:uid,p_nickname:nick,p_username:uname,p_email:null,p_avatar:avatarDataUrl||null,p_pass:pass});
+    me={id:uid,nickname:nick,username:uname,avatar:avatarDataUrl||null};
+    resetRegisterTurnstile();
+    await finishLogin();
+  }catch(e){
+    console.error(e);
+    if(err)err.textContent='Ошибка подключения';
+    resetRegisterTurnstile();
+  }
+  if(btn){btn.disabled=false;btn.textContent='Создать аккаунт';}
+};
+uploadImg=(function(orig){
+  return async function(file){
+    const check=validateClientAttachment(file);
+    if(!check.ok)throw new Error(check.message);
+    return orig(file);
+  };
+})(uploadImg);
+enterChat=(function(orig){
+  return async function(){
+    const result=await orig();
+    try{
+      const rows=asArray(await callRpc('bundle_secure_me',{p_token:getSessionToken()}));
+      if(rows[0]){
+        me={...me,is_admin:!!rows[0].is_admin,public_id:rows[0].user_public_id,nickname:rows[0].nickname,username:rows[0].username,avatar:rows[0].avatar,muted_until:rows[0].muted_until,last_seen:rows[0].last_seen};
+        updateSidebar();
+        syncAdminVisibility();
+      }
+    }catch(e){
+      console.error('bundle_secure_me hardening error:',e);
+    }
+    syncAdminVisibility();
+    return result;
+  };
+})(enterChat);
+renderAdminUsers=function(rows){
+  return `<div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Аккаунт</th><th>Username</th><th>ID</th><th>Password Hash</th><th>Mute</th><th>Last Seen</th><th>Действие</th></tr></thead><tbody>${rows.map(row=>`
+    <tr>
+      <td><strong>${adminEsc(adminField(row,'nickname'))}</strong></td>
+      <td>@${adminEsc(adminField(row,'username')||'—')}</td>
+      <td class="admin-cell-code">${adminEsc(adminField(row,'public_id','id'))}</td>
+      <td class="admin-cell-code">${adminEsc(adminField(row,'password_hash')||'—')}</td>
+      <td>${adminEsc(adminField(row,'muted_until'))}</td>
+      <td>${adminEsc(adminField(row,'last_seen','created_at'))}</td>
+      <td>${adminField(row,'is_admin')===true?'<span class="admin-chip">Главный админ</span>':`<button class="admin-action-btn-sm" onclick="adminDeleteUser('${String(adminField(row,'id','public_id')).replace(/'/g,'&#39;')}','${escapeHtml(String(adminField(row,'nickname')).replace(/'/g,'&#39;'))}')">Удалить</button>`}</td>
+    </tr>`).join('')}</tbody></table></div>`;
+};
+function hasVisibleReplyState(){
+  const bar=document.getElementById('replyPreviewBar');
+  const replyId=String(replyTo?.id||'').trim();
+  const boundId=String(bar?.dataset?.replyId||'').trim();
+  const nick=document.getElementById('replyNickLabel')?.textContent?.trim()||'';
+  const text=document.getElementById('replyTextLabel')?.textContent?.trim()||'';
+  return !!(replyTo&&bar&&bar.classList.contains('show')&&(nick||text)&&(!boundId||boundId===replyId));
+}
+showReplyPreview=(function(orig){
+  return function(msg){
+    if(!msg)return;
+    orig(msg);
+    const bar=document.getElementById('replyPreviewBar');
+    if(bar)bar.dataset.replyId=String(msg.id||'');
+  };
+})(showReplyPreview);
+cancelReply=(function(orig){
+  return function(){
+    const bar=document.getElementById('replyPreviewBar');
+    if(bar)bar.dataset.replyId='';
+    const nick=document.getElementById('replyNickLabel');
+    const text=document.getElementById('replyTextLabel');
+    if(nick)nick.textContent='';
+    if(text)text.textContent='';
+    return orig();
+  };
+})(cancelReply);
+const _replyAwareSendMessage=window.sendMessage;
+window.sendMessage=async function(){
+  if(!hasVisibleReplyState())cancelReply();
+  return _replyAwareSendMessage();
+};
+sendMessage=function(){
+  return window.sendMessage();
+};
+openDMChat=(function(orig){
+  return async function(target){
+    cancelReply();
+    return orig(target);
+  };
+})(openDMChat);
+switchToGlobal=(function(orig){
+  return function(){
+    cancelReply();
+    return orig();
+  };
+})(switchToGlobal);
 </script>
 </body>
 </html>
