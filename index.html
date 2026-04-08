@@ -743,6 +743,7 @@ const STORAGE_BUCKET = 'bundle-images'; // создай bucket с таким и�
 const ADMIN_NICK_LOWER  = 'neked';
 const ADMIN_USERNAME    = 'neked';
 const TURNSTILE_SITEKEY = window.BUNDLE_TURNSTILE_SITEKEY || '1x00000000000000000000AA';
+const HUMAN_GATE_STORAGE_KEY = 'bundle-turnstile-passed';
 
 const H = {
   'apikey': SUPABASE_KEY,
@@ -902,7 +903,7 @@ let adminPanelData={users:[],messages:[],sessions:[]};
 let adminPanelLoaded={users:false,messages:false,sessions:false};
 let entryTurnstileWidgetId=null,registerTurnstileWidgetId=null;
 let entryTurnstileToken='',registerTurnstileToken='';
-let humanGatePassed=false;
+let humanGatePassed=localStorage.getItem(HUMAN_GATE_STORAGE_KEY)==='1';
 const brokenMediaUrls=new Set();
 const EMOJI_SET=['😀','😁','😂','🤣','😊','😍','🥰','😘','😎','🥳','🤝','🙏','🔥','💜','✨','🎉','👍','👀','🤔','😴','🥺','😭','😡','🤯','😅','😇','🤗','😏','😜','🤩','💯','❤️','🫶','😌','🤟','👑','🍓','🌙','⚡','🎵'];
 let dmListBootUntil=0;
@@ -1257,6 +1258,7 @@ function markRegisterTurnstileState(ok,message=''){
 }
 function openRegisterAfterHumanCheck(){
   humanGatePassed=true;
+  localStorage.setItem(HUMAN_GATE_STORAGE_KEY,'1');
   document.body.classList.remove('checking');
   const auth=document.getElementById('authScreen');
   if(auth)auth.classList.add('active');
@@ -1264,7 +1266,7 @@ function openRegisterAfterHumanCheck(){
 }
 function initTurnstileWidgets(){
   if(typeof window.turnstile==='undefined')return false;
-  if(!entryTurnstileWidgetId){
+  if(!humanGatePassed && !entryTurnstileWidgetId){
     entryTurnstileWidgetId=window.turnstile.render('#entryTurnstile',{
       sitekey:TURNSTILE_SITEKEY,
       theme:'auto',
@@ -1304,7 +1306,9 @@ function initTurnstileWidgets(){
   return true;
 }
 function ensureTurnstileBoot(){
-  if(humanGatePassed)return;
+  if(humanGatePassed){
+    document.body.classList.remove('checking');
+  }
   if(initTurnstileWidgets())return;
   setTimeout(ensureTurnstileBoot,250);
 }
@@ -4423,7 +4427,8 @@ window.sendMessage=async function(){
   return _replyAwareSendMessage();
 };
 sendMessage=function(){
-  return window.sendMessage();
+  if(!hasVisibleReplyState())cancelReply();
+  return _replyAwareSendMessage();
 };
 openDMChat=(function(orig){
   return async function(target){
